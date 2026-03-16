@@ -1,91 +1,78 @@
+#include <stdio.h>
+#include <stdlib.h>
+
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#include <iostream>
-#include <vector>
 
-int main()
+#include "VulkanCore/MorphVulkanCore.h"
+
+#define WINDOW_WIDTH 1920
+#define WINDOW_HEIGHT 1080
+#define APP_NAME "Morph"
+
+GLFWwindow* window = NULL;
+
+void GLFW_KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    GLFWwindow* window = glfwCreateWindow(800, 600, "MorphEditor", nullptr, nullptr);
+    if((key == GLFW_KEY_ESCAPE) && (action == GLFW_PRESS))
+    { glfwSetWindowShouldClose(window, GLFW_TRUE); }
+}
 
-    uint32_t glfwExtensionCout = 0;
-    const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCout);
-    std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCout);
-
-    for(uint32_t i = 0; i < extensions.size(); i++)
-    { std::cout << extensions[i] << std::endl; }
-
-    VkApplicationInfo appInfo = {};
-    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName = "MorphEditor";
-    appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName = "MorphEngine";
-    appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.apiVersion = VK_API_VERSION_1_4;
-
-    VkInstanceCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    createInfo.pApplicationInfo = &appInfo;
-    createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-    createInfo.ppEnabledExtensionNames = extensions.data();
-
-    VkInstance instance = {};
-    vkCreateInstance(&createInfo, nullptr, &instance);
-
-    uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
-    std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
-
-    VkPhysicalDevice physicalDevice = devices.data()[0];
-
-    uint32_t queueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
-
-    std::vector<VkQueueFamilyProperties>queueFamilies(queueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies.data());
-
-    uint32_t graphicsQueueFamilyIndex = 0;
-    uint32_t presentQueueFamilyIndex = 0;
-
-    for(size_t i = 0; i < queueFamilies.size(); i++)
+class VulkanApp
+{
+public:
+    VulkanApp()
     {
-        VkQueueFamilyProperties queueFamily = queueFamilies[i];
-        if(queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
-        {
-            graphicsQueueFamilyIndex = i;
-            break;
-        }
+
     }
 
-    VkPhysicalDeviceFeatures deviceFeatures = {};
+    ~VulkanApp()
+    {
 
-    float queuePriority = 1.0f;
+    }
 
-    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-    VkDeviceQueueCreateInfo queueCreateInfo = {};
-    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueCount = 1;
-    queueCreateInfo.queueFamilyIndex = graphicsQueueFamilyIndex;
-    queueCreateInfo.pQueuePriorities = &queuePriority;
-    
-    queueCreateInfos.push_back(queueCreateInfo);
+    void Init(const char* pAppName)
+    {
+        m_vkCore.Init(pAppName);
+    }
 
-    VkDeviceCreateInfo deviceCreateInfo = {};
-    deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    void RenderScene()
+    {
 
-    deviceCreateInfo.enabledExtensionCount = 0;
-    deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
+    }
 
-    deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-    deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
+private:
+    MorphVK::VulkanCore m_vkCore;
+};
 
-    VkDevice device;
-    vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device);
+int main(int argc, char* argv[])
+{
+    if(!glfwInit()) return 1;
+    if(!glfwVulkanSupported()) return 1;
 
-    while(glfwWindowShouldClose(window) == false)
-    { glfwPollEvents(); }
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-    return 1;
+    window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "MorphEditor", nullptr, nullptr);
+
+    if(!window)
+    {
+        glfwTerminate();
+        exit(EXIT_FAILURE);
+    }
+
+    glfwSetKeyCallback(window, GLFW_KeyCallback);
+
+    VulkanApp App;
+    App.Init(APP_NAME);
+
+    while(!glfwWindowShouldClose(window))
+    {
+        App.RenderScene();
+        glfwPollEvents();
+    }
+
+    glfwTerminate();
+
+    return 0;
 }
