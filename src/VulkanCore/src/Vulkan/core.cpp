@@ -13,12 +13,44 @@ VulkanCore::VulkanCore()
 
 VulkanCore::~VulkanCore()
 {
+    printf("--------------------------------------\n");
+
+    PFN_vkDestroySurfaceKHR vkDestroySurface = VK_NULL_HANDLE;
+    vkDestroySurface = (PFN_vkDestroySurfaceKHR)vkGetInstanceProcAddr(m_instance, "vkDestroySurfaceKHR");
+    if(!vkDestroySurface)
+    {
+        MORPH_ERROR("Cannot find address of vkDestroyDebugUtilsMessenger\n");
+        exit(1);
+    }
+
+    vkDestroySurface(m_instance, m_surface, NULL);
+
+    printf("GLFW window surface destroyed\n");
+
+    PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessenger = VK_NULL_HANDLE;
+    vkDestroyDebugUtilsMessenger = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_instance, "vkDestroyDebugUtilsMessengerEXT");
+    if(!vkDestroyDebugUtilsMessenger)
+    {
+        MORPH_ERROR("Cannot find address of vkDestroyDebugUtilsMessenger\n");
+        exit(1);
+    }
+    vkDestroyDebugUtilsMessenger(m_instance, m_debugMessenger, NULL);
+
+    printf("Debug callback destroyed\n");
+
     vkDestroyInstance(m_instance, NULL);
     printf("Vulkan instance destroyed\n");
 }
 
-void VulkanCore::Init(const char* pAppName)
-{ CreateInstance(pAppName); }
+void VulkanCore::Init(const char* pAppName, GLFWwindow* pWindow)
+{
+    m_pWindow = pWindow;
+    CreateInstance(pAppName);
+    CreateDebugCallback();
+    CreateSurface(pWindow);
+    m_physDevices.Init(m_instance, m_surface);
+    m_queueFamily = m_physDevices.SelectDevice(VK_QUEUE_GRAPHICS_BIT, true);
+}
 
 void VulkanCore::CreateInstance(const char* pAppName)
 {
@@ -36,7 +68,6 @@ void VulkanCore::CreateInstance(const char* pAppName)
         "VK_KHR_xcb_surface",
 #endif
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-        VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
     };
 
     VkApplicationInfo AppInfo =
@@ -66,4 +97,65 @@ void VulkanCore::CreateInstance(const char* pAppName)
     CHECK_VK_RESULT(res, "Create instance");
     printf("Vulkan instance create\n");
 }
+
+static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback
+(
+    VkDebugUtilsMessageSeverityFlagBitsEXT Severity,
+    VkDebugUtilsMessageTypeFlagsEXT Type,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* pUserData
+)
+{
+    printf("Debug callback: %s\n", pCallbackData->pMessage);
+    printf("  Severity %s\n", GetDebugSeverityStr(Severity));
+    printf("  Type %s\n", GetDebugType(Type));
+    printf("  Objects ");
+
+    for(u32 i = 0; i  < pCallbackData->objectCount; i++)
+    { printf("%llx ", pCallbackData->pObjects[i].objectHandle); }
+
+    return VK_FALSE;
 }
+
+void VulkanCore::CreateDebugCallback()
+{
+    VkDebugUtilsMessengerCreateInfoEXT MessengerCreateInfo =
+    {
+        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+        .pNext = NULL,
+        .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                           VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+        .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                       VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                       VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+        .pfnUserCallback = &DebugCallback,
+        .pUserData = NULL
+    };
+
+    PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessenger =
+        (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT");
+    if(!vkCreateDebugUtilsMessenger)
+    {
+        MORPH_ERROR("Cannot find address of vkCreateDebugUtilsMessenger\n");
+        exit(1);
+    }
+
+    VkResult res = vkCreateDebugUtilsMessenger(m_instance, &MessengerCreateInfo, NULL, &m_debugMessenger);
+    CHECK_VK_RESULT(res, "debug utils messenger");
+
+    printf("Debug utils messenger created\n");
+}
+
+void VulkanCore::CreateSurface(GLFWwindow* pWindow)
+{
+    if(glfwCreateWindowSurface(m_instance, pWindow, NULL, &m_surface))
+    {
+        fprintf(stderr, "Error creating GLFW window surface\n");
+        exit(1);
+    }
+
+    printf("GLFW window surface created\n");
+}
+}   

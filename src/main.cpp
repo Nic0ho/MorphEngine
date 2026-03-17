@@ -31,9 +31,9 @@ public:
 
     }
 
-    void Init(const char* pAppName)
+    void Init(const char* pAppName, GLFWwindow* pWindow)
     {
-        m_vkCore.Init(pAppName);
+        m_vkCore.Init(pAppName, pWindow);
     }
 
     void RenderScene()
@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-    window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "MorphEditor", nullptr, nullptr);
+    window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, APP_NAME, nullptr, nullptr);
 
     if(!window)
     {
@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
     glfwSetKeyCallback(window, GLFW_KeyCallback);
 
     VulkanApp App;
-    App.Init(APP_NAME);
+    App.Init(APP_NAME, window);
 
     while(!glfwWindowShouldClose(window))
     {

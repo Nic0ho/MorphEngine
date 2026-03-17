@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdio.h>
+#include <vulkan/vulkan.h>
 
 typedef unsigned int uint;
 
@@ -10,3 +11,8 @@ typedef unsigned int uint;
         fprintf(stderr, "Error in %s:%d - %s, code %x\n", __FILE__, __LINE__, msg, res); \
         exit(1);                                                                         \
     }
+
+#define MORPH_ERROR(msg, ...) fprintf(stderr, msg, ##__VA_ARGS__)
+
+const char* GetDebugSeverityStr(VkDebugUtilsMessageSeverityFlagBitsEXT Severity);
+const char* GetDebugType(VkDebugUtilsMessageTypeFlagsEXT Type);
