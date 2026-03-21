@@ -10,8 +10,7 @@ include(FetchContent)
 FetchContent_Declare(
     glfw
     GIT_REPOSITORY https://github.com/glfw/glfw.git
-    GIT_TAG        3.4
-)
+    GIT_TAG        3.4)
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -21,18 +20,10 @@ FetchContent_MakeAvailable(glfw)
 
 find_package(Vulkan REQUIRED)
 
-add_executable(${PROJECT_NAME}
-    src/main.cpp
-    src/VulkanCore/src/Vulkan/core.cpp
-    src/VulkanCore/src/Vulkan/util.cpp
-    src/VulkanCore/src/Vulkan/device.cpp
-)
-
-target_link_libraries(${PROJECT_NAME} PRIVATE 
-    glfw 
-    Vulkan::Vulkan
-)
-
-target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
+add_subdirectory(Engine)
+#MODULES
+add_subdirectory(Modules/VulkanRenderer)
+#END_MODULES
+add_subdirectory(Editor)
+add_subdirectory(Sandbox)
+add_subdirectory(Hub)
