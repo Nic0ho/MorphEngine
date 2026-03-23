@@ -1,6 +1,6 @@
 set(LIB_NAME VulkanRenderer)
 
-add_library(VulkanRenderer SHARED
+add_library(VulkanRenderer STATIC
     src/core.cpp
     src/device.cpp
     src/util.cpp)

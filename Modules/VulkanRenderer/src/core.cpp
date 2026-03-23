@@ -14,6 +14,11 @@ VulkanCore::~VulkanCore()
 {
     printf("--------------------------------------\n");
 
+    for(int i = 0; i < m_imageViews.size(); i++)
+    { vkDestroyImageView(m_device, m_imageViews[i], NULL); }
+
+    vkDestroySwapchainKHR(m_device, m_swapChain, NULL);
+
     vkDestroyDevice(m_device, NULL);
 
     PFN_vkDestroySurfaceKHR vkDestroySurface = VK_NULL_HANDLE;
@@ -52,11 +57,23 @@ void VulkanCore::Init(const char* pAppName, GLFWwindow* pWindow)
     m_physDevices.Init(m_instance, m_surface);
     m_queueFamily = m_physDevices.SelectDevice(VK_QUEUE_GRAPHICS_BIT, true);
     CreateDevice();
+    CreateSwapChain();
+    CreateCommandBufferPool();
 }
 
 void VulkanCore::CreateInstance(const char* pAppName)
 {
     std::vector<const char*> Layers = { "VK_LAYER_KHRONOS_validation" };
+
+    uint32_t glfwExtensionCount = 0;
+    const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+    if (glfwExtensions == nullptr)
+    {
+        MORPH_ERROR("GLFW failed to return required extensions!\n");
+        exit(1);
+    }
+
     std::vector<const char*> Extensions =
     {
         VK_KHR_SURFACE_EXTENSION_NAME,
@@ -71,7 +88,7 @@ void VulkanCore::CreateInstance(const char* pAppName)
 #endif
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
     };
-
+    
     VkApplicationInfo AppInfo =
     {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -215,6 +232,8 @@ static VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& P
 {
     for(int i = 0; i < PresentModes.size(); i++)
     { if(PresentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) return PresentModes[i]; }
+
+    return VK_PRESENT_MODE_FIFO_KHR;
 }
 
 static u32 ChooseNumImages(const VkSurfaceCapabilitiesKHR& Capabilities)
@@ -320,5 +339,49 @@ void VulkanCore::CreateSwapChain()
 
     m_images.resize(NumSwapChainImages);
     m_imageViews.resize(NumSwapChainImages);
+
+    res = vkGetSwapchainImagesKHR(m_device, m_swapChain, &NumSwapChainImages, m_images.data());
+    CHECK_VK_RESULT(res, "vkGetSwapchainImagesKHR\n");
+
+    int LayerCount = 1;
+    int MipLevels = 1;
+
+    for(u32 i = 0; i < NumSwapChainImages; i++)
+    { m_imageViews[i] = CreateImageView(m_device, m_images[i], SurfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, LayerCount, MipLevels); }
 }
+
+void VulkanCore::CreateCommandBufferPool()
+{
+    VkCommandPoolCreateInfo cmdPoolCreateInfo =
+    {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .queueFamilyIndex = m_queueFamily
+    };
+
+    VkResult res = vkCreateCommandPool(m_device, &cmdPoolCreateInfo, NULL, &m_cmdBufPool);
+    CHECK_VK_RESULT(res, "vkCreateCommandPool\n");
+
+    printf("Command buffer pool created\n");
+}
+
+void VulkanCore::CreateCommandBuffers(u32 count, VkCommandBuffer* cmdBufs)
+{
+    VkCommandBufferAllocateInfo cmdBufAllocInfo =
+    {
+        .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .pNext = NULL,
+        .commandPool = m_cmdBufPool,
+        .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+        .commandBufferCount = count
+    };
+
+    VkResult res = vkAllocateCommandBuffers(m_device, &cmdBufAllocInfo, cmdBufs);
+    CHECK_VK_RESULT(res, "vkAllocateCommandBuffers\n");
+
+    printf("&d command buffers created\n", count);
+}
+
+
 }   

@@ -5,6 +5,12 @@ project(${PROJECT_NAME} VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
 include(FetchContent)
 
 FetchContent_Declare(
@@ -24,6 +30,6 @@ add_subdirectory(Engine)
 #MODULES
 add_subdirectory(Modules/VulkanRenderer)
 #END_MODULES
-add_subdirectory(Editor)
+#add_subdirectory(Editor)
 add_subdirectory(Sandbox)
-add_subdirectory(Hub)
+#add_subdirectory(Hub)
