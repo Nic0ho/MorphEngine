@@ -3,7 +3,10 @@ set(LIB_NAME VulkanRenderer)
 add_library(VulkanRenderer STATIC
     src/core.cpp
     src/device.cpp
-    src/util.cpp)
+    src/util.cpp
+    src/queue.cpp
+    src/queue.cpp
+    src/wrapper.cpp)
 
 target_link_libraries(VulkanRenderer PRIVATE 
     Vulkan::Vulkan

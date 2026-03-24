@@ -53,12 +53,13 @@ void VulkanCore::Init(const char* pAppName, GLFWwindow* pWindow)
     m_pWindow = pWindow;
     CreateInstance(pAppName);
     CreateDebugCallback();
-    CreateSurface(pWindow);
+    CreateSurface();
     m_physDevices.Init(m_instance, m_surface);
     m_queueFamily = m_physDevices.SelectDevice(VK_QUEUE_GRAPHICS_BIT, true);
     CreateDevice();
     CreateSwapChain();
     CreateCommandBufferPool();
+    m_queue.Init(m_device, m_swapChain, m_queueFamily, 0);
 }
 
 void VulkanCore::CreateInstance(const char* pAppName)
@@ -167,9 +168,9 @@ void VulkanCore::CreateDebugCallback()
     printf("Debug utils messenger created\n");
 }
 
-void VulkanCore::CreateSurface(GLFWwindow* pWindow)
+void VulkanCore::CreateSurface()
 {
-    if(glfwCreateWindowSurface(m_instance, pWindow, NULL, &m_surface))
+    if(glfwCreateWindowSurface(m_instance, m_pWindow, NULL, &m_surface))
     {
         fprintf(stderr, "Error creating GLFW window surface\n");
         exit(1);
@@ -383,5 +384,16 @@ void VulkanCore::CreateCommandBuffers(u32 count, VkCommandBuffer* cmdBufs)
     printf("&d command buffers created\n", count);
 }
 
+const VkImage& VulkanCore::GetImage(int Index) const
+{
+    return m_images[Index];
+}
 
+void VulkanCore::FreeCommandBuffers(u32 Count, const VkCommandBuffer* pCmdBufs)
+{
+    if (m_cmdBufPool != VK_NULL_HANDLE)
+    {
+        vkFreeCommandBuffers(m_device, m_cmdBufPool, Count, pCmdBufs);
+    }
+}
 }   

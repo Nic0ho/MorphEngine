@@ -1,3 +1,4 @@
+#include "MorphVulkanUtil.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -5,6 +6,8 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include "MorphVulkanCore.h"
+#include "MorphVulkanWrapper.h"
+#include "MorphVulkanWrapper.h"
 
 
 #define WINDOW_WIDTH 1920
@@ -36,22 +39,56 @@ public:
     {
         m_vkCore.Init(pAppName, pWindow);
         m_numImages = m_vkCore.GetNumImages();
+        m_pQueue = m_vkCore.GetQueue();
         CreateCommandBuffers();
+        RecordCommandBuffers();
     }
 
     void RenderScene()
     {
+        u32 ImageIndex =m_pQueue->AcquireNextImage();
 
+        m_pQueue->SubmitAsync(m_cmdBufs[ImageIndex]);
+
+        m_pQueue->Present(ImageIndex);
     }
 
 private:
     void CreateCommandBuffers()
     {
         m_cmdBufs.resize(m_numImages);
-        m_vkCore.CreateCommandBuffers(m_numImages, &m_cmdBufs[0]);
+        m_vkCore.CreateCommandBuffers(m_numImages, m_cmdBufs.data());
+
+        printf("Created command buffers\n");
+    }
+
+    void RecordCommandBuffers()
+    {
+        VkClearColorValue ClearColor = { 1.0f, 0.0f, 0.0f, 0.0f };
+
+        VkImageSubresourceRange ImageRange =
+        {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        };
+
+        for(uint i = 0; i < m_cmdBufs.size(); i++)
+        {
+            MorphVK::BeginCommandBuffer(m_cmdBufs[i], VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT);
+            vkCmdClearColorImage(m_cmdBufs[i], m_vkCore.GetImage(i), VK_IMAGE_LAYOUT_GENERAL, &ClearColor, 1, &ImageRange);
+            
+            VkResult res = vkEndCommandBuffer(m_cmdBufs[i]);
+            CHECK_VK_RESULT(res, "vkEndCommandBuffer\n");
+        }
+
+        printf("Command buffers recorded\n");
     }
 
     MorphVK::VulkanCore m_vkCore;
+    MorphVK::VulkanQueue* m_pQueue = NULL;
     int m_numImages = 0;
     std::vector<VkCommandBuffer> m_cmdBufs;
 };
