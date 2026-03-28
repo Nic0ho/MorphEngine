@@ -97,5 +97,7 @@ void VulkanQueue::Present(u32 ImageIndex)
 
     VkResult res = vkQueuePresentKHR(m_queue, &PresentInfo);
     CHECK_VK_RESULT(res, "vkQueuePresentKHR\n");
+
+    WaitIdle();
 }
 }

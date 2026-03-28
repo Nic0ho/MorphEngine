@@ -1,7 +1,5 @@
 #pragma once
 
-#include <stdio.h>
-
 #include <vulkan/vulkan.h>
 
 #include "Common/MorphTypes.h"
@@ -21,6 +19,7 @@ public:
 
     void SubmitSync(VkCommandBuffer CmdBuf);
     void SubmitAsync(VkCommandBuffer CmdBuf);
+    void SubmitAsync(VkCommandBuffer* pCmdBufs, int NumCmdBufs);
     void Present(u32 ImageIndex);
     void WaitIdle();
 

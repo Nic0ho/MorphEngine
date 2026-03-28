@@ -24,8 +24,14 @@ public:
 
     VulkanQueue* GetQueue() { return &m_queue; }
 
+    VkDevice GetDevice() const { return m_device; }
+
     void CreateCommandBuffers(u32 Count, VkCommandBuffer* pCmdBufs);
     void FreeCommandBuffers(u32 Count, const VkCommandBuffer* pCmdBufs);
+
+    std::vector<VkFramebuffer> CreateFramebuffer(VkRenderPass RenderPass);
+
+    VkRenderPass CreateSimpleRenderPass();
 
 private:
     void CreateInstance(const char* pAppName);
@@ -48,5 +54,6 @@ private:
     std::vector<VkImageView> m_imageViews;
     VkCommandPool m_cmdBufPool;
     VulkanQueue m_queue;
+    std::vector<VkFramebuffer> m_frameBuffers;
 };
 }

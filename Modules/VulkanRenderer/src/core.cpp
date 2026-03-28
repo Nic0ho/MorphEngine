@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <cstddef>
 
 #include "Common/MorphTypes.h"
 #include "MorphVulkanCore.h"
@@ -303,7 +304,7 @@ void VulkanCore::CreateSwapChain()
     const std::vector<VkPresentModeKHR>& PresentModes = m_physDevices.Selected().m_presentModes;
     VkPresentModeKHR PresentMode = ChoosePresentMode(PresentModes);
 
-    VkSurfaceFormatKHR SurfaceFormat = ChooseSurfaceFormatAndColorSpace(m_physDevices.Selected().m_surfaceFormats);
+    m_swapChainSurfaceFormat = ChooseSurfaceFormatAndColorSpace(m_physDevices.Selected().m_surfaceFormats);
 
     VkSwapchainCreateInfoKHR SwapChainCreateInfo =
     {
@@ -312,8 +313,8 @@ void VulkanCore::CreateSwapChain()
         .flags = 0,
         .surface = m_surface,
         .minImageCount = NumImages,
-        .imageFormat = SurfaceFormat.format,
-        .imageColorSpace = SurfaceFormat.colorSpace,
+        .imageFormat = m_swapChainSurfaceFormat.format,
+        .imageColorSpace = m_swapChainSurfaceFormat.colorSpace,
         .imageExtent = SurfaceCaps.currentExtent,
         .imageArrayLayers = 1,
         .imageUsage = (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT),
@@ -348,7 +349,7 @@ void VulkanCore::CreateSwapChain()
     int MipLevels = 1;
 
     for(u32 i = 0; i < NumSwapChainImages; i++)
-    { m_imageViews[i] = CreateImageView(m_device, m_images[i], SurfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, LayerCount, MipLevels); }
+    { m_imageViews[i] = CreateImageView(m_device, m_images[i], m_swapChainSurfaceFormat.format, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_VIEW_TYPE_2D, LayerCount, MipLevels); }
 }
 
 void VulkanCore::CreateCommandBufferPool()
@@ -381,7 +382,7 @@ void VulkanCore::CreateCommandBuffers(u32 count, VkCommandBuffer* cmdBufs)
     VkResult res = vkAllocateCommandBuffers(m_device, &cmdBufAllocInfo, cmdBufs);
     CHECK_VK_RESULT(res, "vkAllocateCommandBuffers\n");
 
-    printf("&d command buffers created\n", count);
+    printf("%d command buffers created\n", count);
 }
 
 const VkImage& VulkanCore::GetImage(int Index) const
@@ -395,5 +396,93 @@ void VulkanCore::FreeCommandBuffers(u32 Count, const VkCommandBuffer* pCmdBufs)
     {
         vkFreeCommandBuffers(m_device, m_cmdBufPool, Count, pCmdBufs);
     }
+}
+
+VkRenderPass VulkanCore::CreateSimpleRenderPass()
+{
+    VkAttachmentDescription AttachDesc =
+    {
+        .flags = 0,
+        .format = m_swapChainSurfaceFormat.format,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+    };
+
+    VkAttachmentReference AttachRef =
+    {
+        .attachment = 0,
+        .layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+    };
+
+    VkSubpassDescription SubpassDesc =
+    {
+        .flags = 0,
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .inputAttachmentCount = 0,
+        .pInputAttachments = NULL,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &AttachRef,
+        .pResolveAttachments = NULL,
+        .pDepthStencilAttachment = NULL,
+        .preserveAttachmentCount = 0,
+        .pPreserveAttachments = NULL
+    };
+
+    VkRenderPassCreateInfo RenderPassCreateInfo =
+    {
+        .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .attachmentCount = 1,
+        .pAttachments = &AttachDesc,
+        .subpassCount = 1,
+        .pSubpasses = &SubpassDesc,
+        .dependencyCount = 0,
+        .pDependencies = NULL
+    };
+
+    VkRenderPass RenderPass;
+
+    VkResult res = vkCreateRenderPass(m_device, &RenderPassCreateInfo, NULL, &RenderPass);
+    CHECK_VK_RESULT(res, "vkCreateRenderPass\n");
+
+    printf("Created a simple render pass\n");
+
+    return RenderPass;
+}
+
+std::vector<VkFramebuffer> VulkanCore::CreateFramebuffer(VkRenderPass RenderPass)
+{
+    m_frameBuffers.resize(m_images.size());
+
+    int WindowWidth, WindowHeight;
+
+    glfwGetWindowSize(m_pWindow, &WindowWidth, &WindowHeight);
+
+    VkResult res;
+
+    for(uint i = 0; i < m_images.size(); i++)
+    {
+        VkFramebufferCreateInfo fbCreateInfo = {};
+        fbCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        fbCreateInfo.renderPass = RenderPass;
+        fbCreateInfo.attachmentCount = 1;
+        fbCreateInfo.pAttachments = &m_imageViews[i];
+        fbCreateInfo.width = WindowWidth;
+        fbCreateInfo.height = WindowHeight;
+        fbCreateInfo.layers = 1;
+
+        res = vkCreateFramebuffer(m_device, &fbCreateInfo, NULL, &m_frameBuffers[i]);
+        CHECK_VK_RESULT(res, "vkCreateFrameBuffer\n");
+    }
+
+    printf("Framebuffers created\n");
+
+    return m_frameBuffers;
 }
 }   
