@@ -1,7 +1,10 @@
 #pragma once
 
 #include <stdio.h>
+#include <vector>
+
 #include <vulkan/vulkan.h>
+#include "Common/MorphTypes.h"
 
 typedef unsigned int uint;
 
@@ -14,5 +17,13 @@ typedef unsigned int uint;
 
 #define MORPH_ERROR(msg, ...) fprintf(stderr, msg, ##__VA_ARGS__)
 
+namespace MorphVK
+{
 const char* GetDebugSeverityStr(VkDebugUtilsMessageSeverityFlagBitsEXT Severity);
 const char* GetDebugType(VkDebugUtilsMessageTypeFlagsEXT Type);
+
+int GetBytesPerTexFormat(VkFormat Format);
+bool HasStencilComponent(VkFormat Format);
+
+VkFormat FindSupportedFormat(VkPhysicalDevice Device, const std::vector<VkFormat>& Candidates, VkImageTiling Tiling, VkFormatFeatureFlags Features);
+}

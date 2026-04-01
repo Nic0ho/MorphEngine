@@ -7,7 +7,6 @@
 #define GLFW_INCLUDE_VULKAN
 #include "MorphVulkanCore.h"
 #include "MorphVulkanWrapper.h"
-#include "MorphVulkanWrapper.h"
 #include "MorphVulkanShader.h"
 
 

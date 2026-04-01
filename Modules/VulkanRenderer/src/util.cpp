@@ -3,8 +3,9 @@
 #include <stdlib.h>
 
 #include "MorphVulkanUtil.h"
-#include "Common/MorphUtil.h"
 
+namespace MorphVK
+{
 const char* GetDebugSeverityStr(VkDebugUtilsMessageSeverityFlagBitsEXT Severity)
 {
     switch(Severity)
@@ -51,4 +52,56 @@ const char* GetDebugType(VkDebugUtilsMessageTypeFlagsEXT Type)
     }
 
     return "NO SUCH TYPE!";
+}
+
+int GetBytesPerTexFormat(VkFormat Format)
+{
+    switch(Format)
+    {
+        case VK_FORMAT_R8_SINT:
+        case VK_FORMAT_R8_UNORM:
+            return 1;
+        case VK_FORMAT_R16_SFLOAT:
+            return 2;
+        case VK_FORMAT_R16G16_SFLOAT:
+        case VK_FORMAT_R16G16_SNORM:
+        case VK_FORMAT_B8G8R8A8_UNORM:
+	    case VK_FORMAT_R8G8B8A8_SNORM:
+        case VK_FORMAT_R8G8B8A8_SRGB:
+            return 4;
+        case VK_FORMAT_R16G16B16A16_SFLOAT:
+            return 4 * sizeof(uint16_t);
+        case VK_FORMAT_R32G32B32_SFLOAT:
+            return 3 * sizeof(float);
+        case VK_FORMAT_R8G8B8_SRGB:
+            return 3;
+        case VK_FORMAT_R32G32B32A32_SFLOAT:
+            return 4 * sizeof(float);
+        default:
+            printf("Unkrown format %d\n", Format);
+            exit(1);
+    }
+    
+    return 0;
+}
+
+bool HasStencilComponent(VkFormat Format)
+{ return ((Format == VK_FORMAT_D32_SFLOAT_S8_UINT) || (Format == VK_FORMAT_D24_UNORM_S8_UINT)); }
+
+VkFormat FindSupportedFormat(VkPhysicalDevice Device, const std::vector<VkFormat>& Candidates, VkImageTiling Tiling, VkFormatFeatureFlags Features)
+{
+    for(int i = 0; i < Candidates.size(); i++)
+    {
+        VkFormat Format = Candidates[i];
+        VkFormatProperties Props;
+        vkGetPhysicalDeviceFormatProperties(Device, Format, &Props);
+
+        if((Tiling == VK_IMAGE_TILING_LINEAR) && (Props.linearTilingFeatures & Features) == Features) return Format;
+        else if(Tiling == VK_IMAGE_TILING_OPTIMAL && (Props.optimalTilingFeatures & Features) == Features) return Format;
+    }
+
+    printf("Failed to find supported format!\n");
+
+    exit(1);
+}
 }
