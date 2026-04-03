@@ -168,7 +168,7 @@ static glslang_stage_t ShaderStageFromFilename(const char* pFilename)
     return GLSLANG_STAGE_VERTEX;
 }
 
-VkShaderModule CreateShaderModuleFromText(VkDevice& Device, const char* pFilename)
+VkShaderModule CreateShaderModuleFromText(VkDevice Device, const char* pFilename)
 {
     std::string Source;
 

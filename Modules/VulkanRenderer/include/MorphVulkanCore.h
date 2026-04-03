@@ -30,6 +30,7 @@ public:
     void FreeCommandBuffers(u32 Count, const VkCommandBuffer* pCmdBufs);
 
     std::vector<VkFramebuffer> CreateFramebuffer(VkRenderPass RenderPass);
+    void DestroyFramebuffers(const std::vector<VkFramebuffer>& Framebuffers);
 
     VkRenderPass CreateSimpleRenderPass();
 

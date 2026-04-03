@@ -8,6 +8,7 @@
 #include "MorphVulkanCore.h"
 #include "MorphVulkanWrapper.h"
 #include "MorphVulkanShader.h"
+#include "MorphVulkanGraphicsPipeline.h"
 
 
 #define WINDOW_WIDTH 1920
@@ -36,6 +37,7 @@ public:
         m_vkCore.DestroyFramebuffers(m_frameBuffers);
         vkDestroyShaderModule(m_vkCore.GetDevice(), m_vs, NULL);
         vkDestroyShaderModule(m_vkCore.GetDevice(), m_fs, NULL);
+        delete m_pPipeline;
         vkDestroyRenderPass(m_vkCore.GetDevice(), m_renderPass, NULL);
     }
 
@@ -46,9 +48,10 @@ public:
         m_pQueue = m_vkCore.GetQueue();
         m_renderPass = m_vkCore.CreateSimpleRenderPass();
         m_frameBuffers =m_vkCore.CreateFramebuffer(m_renderPass);
+        CreateShaders();
+        CreatePipeline();
         CreateCommandBuffers();
         RecordCommandBuffers();
-        CreateShaders();
     }
 
     void RenderScene()
@@ -71,9 +74,12 @@ private:
 
     void CreateShaders()
     {
-        m_vs = MorphVK::CreateShaderModuleFromText(m_vkCore.GetDevice(), "test.vert");
-        m_fs = MorphVK::CreateShaderModuleFromText(m_vkCore.GetDevice(), "test.frag");
+        m_vs = MorphVK::CreateShaderModuleFromText(m_vkCore.GetDevice(), "shaders/test.vert");
+        m_fs = MorphVK::CreateShaderModuleFromText(m_vkCore.GetDevice(), "shaders/test.frag");
     }
+
+    void CreatePipeline()
+    { m_pPipeline = new MorphVK::GraphicsPipeline(m_vkCore.GetDevice(), window, m_renderPass, m_vs, m_fs); }
 
     void RecordCommandBuffers()
     {
@@ -103,6 +109,15 @@ private:
 
             vkCmdBeginRenderPass(m_cmdBufs[i], &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+            m_pPipeline->Bind(m_cmdBufs[i]);
+
+            u32 VertexCount = 3;
+            u32 InstanceCount = 1;
+            u32 FirstVertex = 0;
+            u32 FirstInstance = 0;
+
+            vkCmdDraw(m_cmdBufs[i], VertexCount, InstanceCount, FirstVertex, FirstInstance);
+
             vkCmdEndRenderPass(m_cmdBufs[i]);
             
             VkResult res = vkEndCommandBuffer(m_cmdBufs[i]);
@@ -120,6 +135,7 @@ private:
     std::vector<VkFramebuffer> m_frameBuffers;
     VkShaderModule m_vs;
     VkShaderModule m_fs;
+    MorphVK::GraphicsPipeline* m_pPipeline = NULL;
 };
 
 int main(int argc, char* argv[])

@@ -99,7 +99,7 @@ void VulkanCore::CreateInstance(const char* pAppName)
         .applicationVersion = VK_MAKE_API_VERSION(0, 1, 0, 0),
         .pEngineName = "Morph Engine",
         .engineVersion = VK_MAKE_API_VERSION(0, 1, 0, 0),
-        .apiVersion = VK_API_VERSION_1_0
+        .apiVersion = VK_API_VERSION_1_4
     };
 
     VkInstanceCreateInfo CreateInfo =
@@ -221,7 +221,7 @@ void VulkanCore::CreateDevice()
         .ppEnabledLayerNames = NULL,
         .enabledExtensionCount = (u32)DevExts.size(),
         .ppEnabledExtensionNames = DevExts.data(),
-        .pEnabledFeatures = NULL
+        .pEnabledFeatures = &DeviceFeatures
     };
 
     VkResult res = vkCreateDevice(m_physDevices.Selected().m_physDevice, &DeviceCreateInfo, NULL, &m_device);
@@ -416,7 +416,7 @@ VkRenderPass VulkanCore::CreateSimpleRenderPass()
     VkAttachmentReference AttachRef =
     {
         .attachment = 0,
-        .layout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
     };
 
     VkSubpassDescription SubpassDesc =
@@ -485,4 +485,10 @@ std::vector<VkFramebuffer> VulkanCore::CreateFramebuffer(VkRenderPass RenderPass
 
     return m_frameBuffers;
 }
-}   
+
+void VulkanCore::DestroyFramebuffers(const std::vector<VkFramebuffer>& Framebuffers)
+{
+    for(VkFramebuffer fb : Framebuffers)
+    { vkDestroyFramebuffer(m_device, fb, NULL); }
+}
+}

@@ -15,6 +15,7 @@
 #include "MorphTypes.h"
 
 #define ARRAY_SIZE_IN_BYTES(a) (sizeof(a[0]) * a.size())
+#define ARRAY_SIZE_IN_ELEMENTS(a) (sizeof(a) / sizeof(a[0]))
 
 extern char CurWorkDir[256];
 
