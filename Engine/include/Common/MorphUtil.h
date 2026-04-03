@@ -3,13 +3,11 @@
 #ifndef _WIN64
 #include <unistd.h>
 #endif
-#include <stdlib.h>
-#include <stdio.h>
+
 #include <string>
-#include <vector>
-#include <string.h>
+
 #include <assert.h>
-#include <time.h>
+
 #ifndef MORPH_VULKAN
 #endif
 #include "MorphTypes.h"
