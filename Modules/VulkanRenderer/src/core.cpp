@@ -1,6 +1,8 @@
 #include <assert.h>
 #include <cstddef>
 
+#include <algorithm>
+
 #include "Common/MorphTypes.h"
 #include "MorphVulkanCore.h"
 #include "MorphVulkanUtil.h"
@@ -76,21 +78,9 @@ void VulkanCore::CreateInstance(const char* pAppName)
         exit(1);
     }
 
-    std::vector<const char*> Extensions =
-    {
-        VK_KHR_SURFACE_EXTENSION_NAME,
-#if defined (_WIN32)
-        "VK_KHR_win32_surface",
-#endif
-#if defined (__APPLE__)
-        "VK_MVK_macos_surface",
-#endif
-#if defined (__linux__)
-        "VK_KHR_xcb_surface",
-#endif
-        VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-    };
-    
+    std::vector<const char*> Extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+    Extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+
     VkApplicationInfo AppInfo =
     {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -306,6 +296,23 @@ void VulkanCore::CreateSwapChain()
 
     m_swapChainSurfaceFormat = ChooseSurfaceFormatAndColorSpace(m_physDevices.Selected().m_surfaceFormats);
 
+    VkExtent2D swapchainExtent;
+    if(SurfaceCaps.currentExtent.width != 0xFFFFFFFF) swapchainExtent = SurfaceCaps.currentExtent;
+    else 
+    {
+        int width, height;
+        glfwGetFramebufferSize(m_pWindow, &width, &height);
+
+        swapchainExtent =
+        {
+            static_cast<uint32_t>(width),
+            static_cast<uint32_t>(height)
+        };
+
+        swapchainExtent.width = std::clamp(swapchainExtent.width, SurfaceCaps.minImageExtent.width, SurfaceCaps.maxImageExtent.width);
+        swapchainExtent.height = std::clamp(swapchainExtent.height, SurfaceCaps.minImageExtent.height, SurfaceCaps.maxImageExtent.height);
+    }
+
     VkSwapchainCreateInfoKHR SwapChainCreateInfo =
     {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
@@ -315,7 +322,7 @@ void VulkanCore::CreateSwapChain()
         .minImageCount = NumImages,
         .imageFormat = m_swapChainSurfaceFormat.format,
         .imageColorSpace = m_swapChainSurfaceFormat.colorSpace,
-        .imageExtent = SurfaceCaps.currentExtent,
+        .imageExtent = swapchainExtent,
         .imageArrayLayers = 1,
         .imageUsage = (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT),
         .imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
@@ -462,7 +469,7 @@ std::vector<VkFramebuffer> VulkanCore::CreateFramebuffer(VkRenderPass RenderPass
 
     int WindowWidth, WindowHeight;
 
-    glfwGetWindowSize(m_pWindow, &WindowWidth, &WindowHeight);
+    glfwGetFramebufferSize(m_pWindow, &WindowWidth, &WindowHeight);
 
     VkResult res;
 

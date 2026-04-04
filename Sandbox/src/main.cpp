@@ -87,6 +87,9 @@ private:
         VkClearValue ClearValue;
         ClearValue.color = ClearColor;
 
+        int WindowWidth, WindowHeight;
+        glfwGetFramebufferSize(window, &WindowWidth, &WindowHeight);
+
         VkRenderPassBeginInfo RenderPassBeginInfo =
         {
             .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -95,7 +98,7 @@ private:
             .renderArea =
             {
                 .offset = { .x = 0, .y = 0 },
-                .extent = { .width = WINDOW_WIDTH, .height = WINDOW_HEIGHT }
+                .extent = { .width = static_cast<uint32_t>(WindowWidth), .height = static_cast<uint32_t>(WindowHeight) }
             },
             .clearValueCount = 1,
             .pClearValues = &ClearValue

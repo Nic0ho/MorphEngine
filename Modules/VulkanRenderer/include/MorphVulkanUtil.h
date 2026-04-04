@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <vector>
-
+#include <cstdlib>
 #include <vulkan/vulkan.h>
 #include "Common/MorphTypes.h"
 
