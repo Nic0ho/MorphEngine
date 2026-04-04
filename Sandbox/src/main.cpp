@@ -2,13 +2,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-#define GLFW_INCLUDE_VULKAN
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
+
 #include "MorphVulkanCore.h"
 #include "MorphVulkanWrapper.h"
 #include "MorphVulkanShader.h"
 #include "MorphVulkanGraphicsPipeline.h"
+#include "MorphVulkanSimpleMesh.h"
 
 
 #define WINDOW_WIDTH 1920
@@ -39,6 +43,7 @@ public:
         vkDestroyShaderModule(m_vkCore.GetDevice(), m_fs, NULL);
         delete m_pPipeline;
         vkDestroyRenderPass(m_vkCore.GetDevice(), m_renderPass, NULL);
+        m_mesh.Destroy(m_vkCore.GetDevice());
     }
 
     void Init(const char* pAppName, GLFWwindow* pWindow)
@@ -49,6 +54,7 @@ public:
         m_renderPass = m_vkCore.CreateSimpleRenderPass();
         m_frameBuffers =m_vkCore.CreateFramebuffer(m_renderPass);
         CreateShaders();
+        CreateVertexBuffer();
         CreatePipeline();
         CreateCommandBuffers();
         RecordCommandBuffers();
@@ -72,6 +78,30 @@ private:
         printf("Created command buffers\n");
     }
 
+    void CreateVertexBuffer()
+    {
+        struct Vertex
+        {
+            Vertex(const glm::vec3& p, const glm::vec2& t)
+            {
+                Pos = p;
+                Tex = t;
+            }
+            glm::vec3 Pos;
+            glm::vec2 Tex;
+        };
+
+        std::vector<Vertex> Vertices =
+        {
+            Vertex({ -1.0f, -1.0f, 0.0f }, { 0.0f, 0.0f }),
+            Vertex({ 1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f }),
+            Vertex({ 0.0f, 1.0f, 0.0f }, { 1.0f, 1.0f })
+        };
+
+        m_mesh.m_vertexBufferSize = sizeof(Vertices[0]) * Vertices.size();
+        m_mesh.m_vb = m_vkCore.CreateVertexBuffer(Vertices.data(), m_mesh.m_vertexBufferSize);
+    }
+
     void CreateShaders()
     {
         m_vs = MorphVK::CreateShaderModuleFromText(m_vkCore.GetDevice(), "shaders/test.vert");
@@ -79,7 +109,7 @@ private:
     }
 
     void CreatePipeline()
-    { m_pPipeline = new MorphVK::GraphicsPipeline(m_vkCore.GetDevice(), window, m_renderPass, m_vs, m_fs); }
+    { m_pPipeline = new MorphVK::GraphicsPipeline(m_vkCore.GetDevice(), window, m_renderPass, m_vs, m_fs, &m_mesh, m_numImages); }
 
     void RecordCommandBuffers()
     {
@@ -139,6 +169,7 @@ private:
     VkShaderModule m_vs;
     VkShaderModule m_fs;
     MorphVK::GraphicsPipeline* m_pPipeline = NULL;
+    MorphVK::SimpleMesh m_mesh;
 };
 
 int main(int argc, char* argv[])

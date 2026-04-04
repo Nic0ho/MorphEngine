@@ -7,7 +7,7 @@
 
 namespace MorphVK
 {
-GraphicsPipeline::GraphicsPipeline(VkDevice Device, GLFWwindow* pWindow, VkRenderPass RenderPass, VkShaderModule vs, VkShaderModule fs)
+GraphicsPipeline::GraphicsPipeline(VkDevice Device, GLFWwindow* pWindow, VkRenderPass RenderPass, VkShaderModule vs, VkShaderModule fs, SimpleMesh* pMesh, int numImages)
 {
     m_device = Device;
 
@@ -38,7 +38,7 @@ GraphicsPipeline::GraphicsPipeline(VkDevice Device, GLFWwindow* pWindow, VkRende
     };
 
     int WindowWidth, WindowHeight;
-    glfwGetWindowSize(pWindow, &WindowWidth, &WindowHeight);
+    glfwGetFramebufferSize(pWindow, &WindowWidth, &WindowHeight);
 
     VkViewport VP =
     {

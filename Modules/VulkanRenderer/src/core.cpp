@@ -6,6 +6,7 @@
 #include "Common/MorphTypes.h"
 #include "MorphVulkanCore.h"
 #include "MorphVulkanUtil.h"
+#include "MorphVulkanWrapper.h"
 
 namespace MorphVK
 {
@@ -16,6 +17,11 @@ VulkanCore::VulkanCore()
 VulkanCore::~VulkanCore()
 {
     printf("--------------------------------------\n");
+
+    vkFreeCommandBuffers(m_device, m_cmdBufPool, 1, &m_copyCmdBuf);
+    vkDestroyCommandPool(m_device, m_cmdBufPool, NULL);
+
+    m_queue.Destroy();
 
     for(int i = 0; i < m_imageViews.size(); i++)
     { vkDestroyImageView(m_device, m_imageViews[i], NULL); }
@@ -63,6 +69,7 @@ void VulkanCore::Init(const char* pAppName, GLFWwindow* pWindow)
     CreateSwapChain();
     CreateCommandBufferPool();
     m_queue.Init(m_device, m_swapChain, m_queueFamily, 0);
+    CreateCommandBuffers(1, &m_copyCmdBuf);
 }
 
 void VulkanCore::CreateInstance(const char* pAppName)
@@ -497,5 +504,120 @@ void VulkanCore::DestroyFramebuffers(const std::vector<VkFramebuffer>& Framebuff
 {
     for(VkFramebuffer fb : Framebuffers)
     { vkDestroyFramebuffer(m_device, fb, NULL); }
+}
+
+BufferAndMemory VulkanCore::CreateVertexBuffer(const void* pVertices, size_t Size)
+{
+    VkBufferUsageFlags Usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    VkMemoryPropertyFlags MemProps = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    BufferAndMemory StagingVB = CreateBuffer(Size, Usage, MemProps);
+
+    void* pMem = NULL;
+    VkDeviceSize Offset = 0;
+    VkMemoryMapFlags Flags = 0;
+    VkResult res = vkMapMemory(m_device, StagingVB.m_mem, Offset, StagingVB.m_allocationSize, Flags, &pMem);
+    CHECK_VK_RESULT(res, "vkMapMemory\n");
+
+    memcpy(pMem, pVertices, Size);
+    vkUnmapMemory(m_device, StagingVB.m_mem);
+    
+    Usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    MemProps = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    BufferAndMemory VB = CreateBuffer(Size, Usage, MemProps);
+
+    CopyBuffer(VB.m_buffer, StagingVB.m_buffer, Size);
+
+    StagingVB.Destroy(m_device);
+
+    return VB;
+}
+
+BufferAndMemory VulkanCore::CreateBuffer(VkDeviceSize Size, VkBufferUsageFlags Usage, VkMemoryPropertyFlags Properties)
+{
+    VkBufferCreateInfo vbCreateInfo =
+    {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = Size,
+        .usage = Usage,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+    };
+
+    BufferAndMemory Buf;
+
+    VkResult res = vkCreateBuffer(m_device, &vbCreateInfo, NULL, &Buf.m_buffer);
+    CHECK_VK_RESULT(res, "vkCreateBuffer\n");
+    printf("Buffer created\n");
+
+    VkMemoryRequirements MemReqs = {};
+    vkGetBufferMemoryRequirements(m_device, Buf.m_buffer, &MemReqs);
+    printf("Buffer requires %d bytes\n", (int)MemReqs.size);
+
+    Buf.m_allocationSize = MemReqs.size;
+
+    u32 MemoryTypeIndex = GetMemoryTypeIndex(MemReqs.memoryTypeBits, Properties);
+    printf("Memory type index %d\n", MemoryTypeIndex);
+
+    VkMemoryAllocateInfo MemAllocInfo =
+    {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .allocationSize = MemReqs.size,
+        .memoryTypeIndex = MemoryTypeIndex
+    };
+
+    res = vkAllocateMemory(m_device, &MemAllocInfo, NULL, &Buf.m_mem);
+    CHECK_VK_RESULT(res, "vkAllocateMemory error %d\n");
+
+    res = vkBindBufferMemory(m_device, Buf.m_buffer, Buf.m_mem, 0);
+    CHECK_VK_RESULT(res, "vkBindBufferMemory error %d\n");
+
+    return Buf;
+}
+
+void VulkanCore::CopyBuffer(VkBuffer Dst, VkBuffer Src, VkDeviceSize Size)
+{
+    BeginCommandBuffer(m_copyCmdBuf, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+    VkBufferCopy BufferCopy =
+    {
+        .srcOffset = 0,
+        .dstOffset = 0,
+        .size = Size
+    };
+
+    vkCmdCopyBuffer(m_copyCmdBuf, Src, Dst, 1, &BufferCopy);
+    vkEndCommandBuffer(m_copyCmdBuf);
+
+    m_queue.SubmitSync(m_copyCmdBuf);
+
+    m_queue.WaitIdle();
+}
+
+u32 VulkanCore::GetMemoryTypeIndex(u32 MemTypeBitsMask, VkMemoryPropertyFlags ReqMemPropFlags)
+{
+    const VkPhysicalDeviceMemoryProperties& MemProps = m_physDevices.Selected().m_memProps;
+
+    for (uint i = 0; i < MemProps.memoryTypeCount; i++)
+    {
+        const VkMemoryType& MemType = MemProps.memoryTypes[i];
+        uint CurBitmask = (1 << i);
+        bool IsCurMemTypeSupported = (MemTypeBitsMask & CurBitmask);
+        bool HasRequiredMemProps = ((MemType.propertyFlags & ReqMemPropFlags) == ReqMemPropFlags);
+
+        if (IsCurMemTypeSupported && HasRequiredMemProps) return i;
+    }
+
+    printf("Cannot find memory type for type %x requested mem props %x\n", MemTypeBitsMask, ReqMemPropFlags);
+    exit(1);
+    return -1;
+}
+
+void BufferAndMemory::Destroy(VkDevice Device)
+{
+    if (m_mem) {
+        vkFreeMemory(Device, m_mem, NULL);
+    }
+    if (m_buffer) {
+        vkDestroyBuffer(Device, m_buffer, NULL);
+    }
 }
 }

@@ -3,12 +3,14 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include "MorphVulkanSimpleMesh.h"
+
 namespace MorphVK
 {
 class GraphicsPipeline
 {
 public:
-    GraphicsPipeline(VkDevice Device, GLFWwindow* pWindow, VkRenderPass, VkShaderModule vs, VkShaderModule fs);
+    GraphicsPipeline(VkDevice Device, GLFWwindow* pWindow, VkRenderPass, VkShaderModule vs, VkShaderModule fs, SimpleMesh* pMesh, int numImages);
 
     ~GraphicsPipeline();
     

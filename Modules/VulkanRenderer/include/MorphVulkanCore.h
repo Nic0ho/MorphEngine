@@ -9,6 +9,17 @@
 
 namespace MorphVK
 {
+class BufferAndMemory
+{
+public:
+    BufferAndMemory() {}
+
+    VkBuffer m_buffer = NULL;
+    VkDeviceMemory m_mem = NULL;
+    VkDeviceSize m_allocationSize = 0;
+
+    void Destroy(VkDevice Device);
+};
 class VulkanCore
 {
 public:
@@ -33,7 +44,7 @@ public:
     void DestroyFramebuffers(const std::vector<VkFramebuffer>& Framebuffers);
 
     VkRenderPass CreateSimpleRenderPass();
-
+    BufferAndMemory CreateVertexBuffer(const void* pVertices, size_t Size);
 private:
     void CreateInstance(const char* pAppName);
     void CreateDebugCallback();
@@ -41,6 +52,10 @@ private:
     void CreateDevice();
     void CreateSwapChain();
     void CreateCommandBufferPool();
+    u32 GetMemoryTypeIndex(u32 MemTypeBitsMask, VkMemoryPropertyFlags ReqMemPropFlags);
+    void CopyBuffer(VkBuffer Dst, VkBuffer Src, VkDeviceSize Size);
+    BufferAndMemory CreateBuffer(VkDeviceSize Size, VkBufferUsageFlags Usage, VkMemoryPropertyFlags Properties);
+    
 
     VkInstance m_instance = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
@@ -56,5 +71,6 @@ private:
     VkCommandPool m_cmdBufPool;
     VulkanQueue m_queue;
     std::vector<VkFramebuffer> m_frameBuffers;
+    VkCommandBuffer m_copyCmdBuf;
 };
 }
