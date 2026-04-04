@@ -16,8 +16,17 @@ public:
     
     void Bind(VkCommandBuffer CmdBuf);
 private:
+    void CreateDescriptorPool(int NumImages);
+    void CreateDescriptorSets(int NumImages, const SimpleMesh* pMesh);
+    void CreateDescriptorSetLayout();
+    void AllocateDescriptorSets(int NumImages);
+    void UpdateDescriptorSets(int NumImages, const SimpleMesh* pMesh);
+
     VkDevice m_device = NULL;
     VkPipeline m_pipeline = NULL;
     VkPipelineLayout m_pipelineLayout = NULL;
+    VkDescriptorPool m_descriptorPool;
+    VkDescriptorSetLayout m_descriptorSetLayout;
+    std::vector<VkDescriptorSet> m_descriptorSets;
 };
 }

@@ -2,6 +2,7 @@
 
 #include "Common/MorphTypes.h"
 #include "Common/MorphUtil.h"
+#include "MorphVulkanSimpleMesh.h"
 #include "MorphVulkanUtil.h"
 #include "MorphVulkanGraphicsPipeline.h"
 
@@ -10,6 +11,8 @@ namespace MorphVK
 GraphicsPipeline::GraphicsPipeline(VkDevice Device, GLFWwindow* pWindow, VkRenderPass RenderPass, VkShaderModule vs, VkShaderModule fs, SimpleMesh* pMesh, int numImages)
 {
     m_device = Device;
+
+    if (pMesh) CreateDescriptorSets(numImages, pMesh);
 
     VkPipelineShaderStageCreateInfo ShaderStageCreateInfo[2] =
     {
@@ -106,11 +109,18 @@ GraphicsPipeline::GraphicsPipeline(VkDevice Device, GLFWwindow* pWindow, VkRende
     };
 
     VkPipelineLayoutCreateInfo LayoutInfo =
+    { .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+
+    if (pMesh && pMesh->m_vb.m_buffer)
     {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-        .setLayoutCount = 0,
-        .pSetLayouts = NULL
-    };
+        LayoutInfo.setLayoutCount =1;
+        LayoutInfo.pSetLayouts = &m_descriptorSetLayout;
+    }
+    else
+    {
+        LayoutInfo.setLayoutCount = 0;
+        LayoutInfo.pSetLayouts = NULL;
+    }
 
     VkResult res = vkCreatePipelineLayout(m_device, &LayoutInfo, NULL, &m_pipelineLayout);
     CHECK_VK_RESULT(res, "vkCreatePipelineLayout\n");
@@ -147,4 +157,55 @@ GraphicsPipeline::~GraphicsPipeline()
 
 void GraphicsPipeline::Bind(VkCommandBuffer CmdBuf)
 { vkCmdBindPipeline(CmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline); }
+
+void GraphicsPipeline::CreateDescriptorSets(int NumImages, const SimpleMesh* pMesh)
+{
+    CreateDescriptorPool(NumImages);
+    CreateDescriptorSetLayout();
+    AllocateDescriptorSets(NumImages);
+    UpdateDescriptorSets(NumImages, pMesh);
+}
+
+void GraphicsPipeline::CreateDescriptorPool(int NumImages)
+{
+    VkDescriptorPoolCreateInfo PoolInfo =
+    {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .flags = 0,
+        .maxSets = (u32)NumImages,
+        .poolSizeCount = 0,
+        .pPoolSizes = NULL
+    };
+
+    VkResult res = vkCreateDescriptorPool(m_device, &PoolInfo, NULL, &m_descriptorPool);
+    CHECK_VK_RESULT(res, "vkCreateDescriptorPool");
+    printf("Descriptor pool created\n");
+}
+
+void GraphicsPipeline::CreateDescriptorSetLayout()
+{
+    std::vector<VkDescriptorSetLayoutBinding> LayoutBindings;
+
+    VkDescriptorSetLayoutBinding VertexShaderLayoutBinding_VB =
+    {
+        .binding = 0,
+        .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorCount = 1,
+        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT
+    };
+
+    LayoutBindings.push_back(VertexShaderLayoutBinding_VB);
+
+    VkDescriptorSetLayoutCreateInfo LayoutInfo =
+    {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .pNext = NULL,
+        .flags = 0,
+        .bindingCount = (u32)LayoutBindings.size(),
+        .pBindings = LayoutBindings.data()
+    };
+
+    VkResult res = vkCreateDescriptorSetLayout(m_device, &LayoutInfo, NULL, &m_descriptorSetLayout);
+    CHECK_VK_RESULT(res, "vkCreateDecriptorSetLayout");
+}
 }
