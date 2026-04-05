@@ -142,7 +142,7 @@ private:
 
             vkCmdBeginRenderPass(m_cmdBufs[i], &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-            m_pPipeline->Bind(m_cmdBufs[i]);
+            m_pPipeline->Bind(m_cmdBufs[i], i);
 
             u32 VertexCount = 3;
             u32 InstanceCount = 1;

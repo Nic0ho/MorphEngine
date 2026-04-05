@@ -14,7 +14,7 @@ public:
 
     ~GraphicsPipeline();
     
-    void Bind(VkCommandBuffer CmdBuf);
+    void Bind(VkCommandBuffer CmdBuf, int ImageIndex);
 private:
     void CreateDescriptorPool(int NumImages);
     void CreateDescriptorSets(int NumImages, const SimpleMesh* pMesh);

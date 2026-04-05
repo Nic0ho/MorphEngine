@@ -155,8 +155,11 @@ GraphicsPipeline::~GraphicsPipeline()
     vkDestroyPipeline(m_device, m_pipeline, NULL);
 }
 
-void GraphicsPipeline::Bind(VkCommandBuffer CmdBuf)
-{ vkCmdBindPipeline(CmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline); }
+void GraphicsPipeline::Bind(VkCommandBuffer CmdBuf, int ImageIndex)
+{
+    vkCmdBindPipeline(CmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+    if (m_descriptorSets.size() > 0) vkCmdBindDescriptorSets(CmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSets[ImageIndex], 0, NULL);    
+}
 
 void GraphicsPipeline::CreateDescriptorSets(int NumImages, const SimpleMesh* pMesh)
 {
@@ -168,13 +171,19 @@ void GraphicsPipeline::CreateDescriptorSets(int NumImages, const SimpleMesh* pMe
 
 void GraphicsPipeline::CreateDescriptorPool(int NumImages)
 {
+    VkDescriptorPoolSize PoolSize =
+    {
+        .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        .descriptorCount = (u32)NumImages
+    };
+
     VkDescriptorPoolCreateInfo PoolInfo =
     {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .flags = 0,
         .maxSets = (u32)NumImages,
-        .poolSizeCount = 0,
-        .pPoolSizes = NULL
+        .poolSizeCount = 1,
+        .pPoolSizes = &PoolSize
     };
 
     VkResult res = vkCreateDescriptorPool(m_device, &PoolInfo, NULL, &m_descriptorPool);
