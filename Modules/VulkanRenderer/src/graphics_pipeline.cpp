@@ -208,4 +208,53 @@ void GraphicsPipeline::CreateDescriptorSetLayout()
     VkResult res = vkCreateDescriptorSetLayout(m_device, &LayoutInfo, NULL, &m_descriptorSetLayout);
     CHECK_VK_RESULT(res, "vkCreateDecriptorSetLayout");
 }
+
+void GraphicsPipeline::AllocateDescriptorSets(int NumImages)
+{
+    std::vector<VkDescriptorSetLayout> Layouts(NumImages, m_descriptorSetLayout);
+
+    VkDescriptorSetAllocateInfo AllocInfo =
+    {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .pNext = NULL,
+        .descriptorPool = m_descriptorPool,
+        .descriptorSetCount = (u32)NumImages,
+        .pSetLayouts = Layouts.data()
+    };
+
+    m_descriptorSets.resize(NumImages);
+
+    VkResult res = vkAllocateDescriptorSets(m_device, &AllocInfo, m_descriptorSets.data());
+    CHECK_VK_RESULT(res, "AllocateDescriptorSets");
+}
+
+void GraphicsPipeline::UpdateDescriptorSets(int NumImages, const SimpleMesh* pMesh)
+{
+    VkDescriptorBufferInfo BufferInfo_VB =
+    {
+        .buffer = pMesh->m_vb.m_buffer,
+        .offset = 0,
+        .range = pMesh->m_vertexBufferSize
+    };
+
+    std::vector<VkWriteDescriptorSet> WriteDescriptorSet;
+
+    for (size_t i = 0; i < NumImages; i++)
+    {
+        WriteDescriptorSet.push_back(
+            VkWriteDescriptorSet
+            {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet = m_descriptorSets[i],
+                .dstBinding = 0,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                .pBufferInfo = &BufferInfo_VB
+            }
+        );
+    }
+
+    vkUpdateDescriptorSets(m_device, (u32)WriteDescriptorSet.size(), WriteDescriptorSet.data(), 0, NULL);
+}
 }
