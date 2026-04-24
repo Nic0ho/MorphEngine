@@ -4,23 +4,24 @@
 #include <GLFW/glfw3.h>
 
 #include "MorphVulkanSimpleMesh.h"
+#include "MorphVulkanCore.h"
 
 namespace MorphVK
 {
 class GraphicsPipeline
 {
 public:
-    GraphicsPipeline(VkDevice Device, GLFWwindow* pWindow, VkRenderPass, VkShaderModule vs, VkShaderModule fs, SimpleMesh* pMesh, int numImages);
+    GraphicsPipeline(VkDevice Device, GLFWwindow* pWindow, VkRenderPass RenderPass, VkShaderModule vs, VkShaderModule fs, SimpleMesh* pMesh, int numImages, std::vector<BufferAndMemory>& UniformBuffers, int UniformDataSize);
 
     ~GraphicsPipeline();
     
     void Bind(VkCommandBuffer CmdBuf, int ImageIndex);
 private:
     void CreateDescriptorPool(int NumImages);
-    void CreateDescriptorSets(int NumImages, const SimpleMesh* pMesh);
-    void CreateDescriptorSetLayout();
     void AllocateDescriptorSets(int NumImages);
-    void UpdateDescriptorSets(int NumImages, const SimpleMesh* pMesh);
+    void CreateDescriptorSets(int NumImages, const SimpleMesh* pMesh, std::vector<BufferAndMemory>& UniformBuffers, int UniformDataSize);
+    void CreateDescriptorSetLayout(std::vector<BufferAndMemory>& UniformBuffers, int UniformDataSize);
+    void UpdateDescriptorSets(int NumImages, const SimpleMesh* pMesh, std::vector<BufferAndMemory>& UniformBuffers, int UniformDataSize);
 
     VkDevice m_device = NULL;
     VkPipeline m_pipeline = NULL;

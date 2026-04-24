@@ -18,6 +18,8 @@ public:
     VkDeviceMemory m_mem = NULL;
     VkDeviceSize m_allocationSize = 0;
 
+    void Update(VkDevice Device, const void* pData, size_t Size);
+
     void Destroy(VkDevice Device);
 };
 class VulkanCore
@@ -45,6 +47,9 @@ public:
 
     VkRenderPass CreateSimpleRenderPass();
     BufferAndMemory CreateVertexBuffer(const void* pVertices, size_t Size);
+
+    void GetFramebufferSize(int& Width, int& Height) const;
+    std::vector<BufferAndMemory> CreateUniformBuffers(size_t Size);
 private:
     void CreateInstance(const char* pAppName);
     void CreateDebugCallback();
@@ -55,7 +60,7 @@ private:
     u32 GetMemoryTypeIndex(u32 MemTypeBitsMask, VkMemoryPropertyFlags ReqMemPropFlags);
     void CopyBuffer(VkBuffer Dst, VkBuffer Src, VkDeviceSize Size);
     BufferAndMemory CreateBuffer(VkDeviceSize Size, VkBufferUsageFlags Usage, VkMemoryPropertyFlags Properties);
-    
+    BufferAndMemory CreateUniformBuffer(size_t Size);
 
     VkInstance m_instance = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;

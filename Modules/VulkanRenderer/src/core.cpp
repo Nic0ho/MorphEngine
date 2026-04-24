@@ -350,10 +350,9 @@ void VulkanCore::CreateSwapChain()
     uint NumSwapChainImages = 0;
     res = vkGetSwapchainImagesKHR(m_device, m_swapChain, &NumSwapChainImages, NULL);
     CHECK_VK_RESULT(res, "vkGetSwapchainImagesKHR\n");
-    assert(NumImages == NumSwapChainImages);
 
     printf("Number of images %d\n", NumSwapChainImages);
-
+ 
     m_images.resize(NumSwapChainImages);
     m_imageViews.resize(NumSwapChainImages);
 
@@ -371,15 +370,14 @@ void VulkanCore::CreateCommandBufferPool()
 {
     VkCommandPoolCreateInfo cmdPoolCreateInfo =
     {
-        .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-        .pNext = NULL,
-        .flags = 0,
+        .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+        .pNext            = NULL,
+        .flags            = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
         .queueFamilyIndex = m_queueFamily
     };
-
+ 
     VkResult res = vkCreateCommandPool(m_device, &cmdPoolCreateInfo, NULL, &m_cmdBufPool);
     CHECK_VK_RESULT(res, "vkCreateCommandPool\n");
-
     printf("Command buffer pool created\n");
 }
 
@@ -533,6 +531,18 @@ BufferAndMemory VulkanCore::CreateVertexBuffer(const void* pVertices, size_t Siz
     return VB;
 }
 
+BufferAndMemory VulkanCore::CreateUniformBuffer(size_t Size)
+{
+    BufferAndMemory Buffer;
+
+    VkBufferUsageFlags Usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    VkMemoryPropertyFlags MemProps = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+    Buffer = CreateBuffer(Size, Usage, MemProps);
+
+    return Buffer;
+}
+
 BufferAndMemory VulkanCore::CreateBuffer(VkDeviceSize Size, VkBufferUsageFlags Usage, VkMemoryPropertyFlags Properties)
 {
     VkBufferCreateInfo vbCreateInfo =
@@ -620,5 +630,29 @@ void BufferAndMemory::Destroy(VkDevice Device)
     if (m_buffer) {
         vkDestroyBuffer(Device, m_buffer, NULL);
     }
+}
+
+void VulkanCore::GetFramebufferSize(int& Width, int& Height) const
+{ glfwGetFramebufferSize(m_pWindow, &Width, &Height); }
+
+std::vector<BufferAndMemory> VulkanCore::CreateUniformBuffers(size_t Size)
+{
+    std::vector<BufferAndMemory> UniformBuffers;
+
+    UniformBuffers.resize(m_images.size());
+
+    for (int i = 0; i < UniformBuffers.size(); i++)
+    { UniformBuffers[i] = CreateUniformBuffer(Size); }
+
+    return UniformBuffers;
+}
+
+void BufferAndMemory::Update(VkDevice Device, const void* pData, size_t Size)
+{
+    void* pMem = NULL;
+    VkResult res = vkMapMemory(Device, m_mem, 0, Size, 0, &pMem);
+    CHECK_VK_RESULT(res, "vkMapMemory");
+    memcpy(pMem, pData, Size);
+    vkUnmapMemory(Device, m_mem);
 }
 }

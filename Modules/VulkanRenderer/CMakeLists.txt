@@ -7,7 +7,8 @@ add_library(VulkanRenderer STATIC
     src/queue.cpp
     src/wrapper.cpp
     src/shader.cpp
-    src/graphics_pipeline.cpp)
+    src/graphics_pipeline.cpp
+    src/glfw_vulkan.cpp)
 
 if (WIN32)
     target_link_directories(VulkanRenderer PUBLIC
@@ -37,7 +38,8 @@ endif()
 target_include_directories(VulkanRenderer PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/Engine/include
-    ${CMAKE_SOURCE_DIR}/ThirdParty/SPIRV-Reflect)
+    ${CMAKE_SOURCE_DIR}/ThirdParty/SPIRV-Reflect
+    ${Vulkan_INCLUDE_DIRS})
 
 target_sources(VulkanRenderer PRIVATE
     ${CMAKE_SOURCE_DIR}/ThirdParty/SPIRV-Reflect/spirv_reflect.c)
