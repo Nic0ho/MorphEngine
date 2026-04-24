@@ -8,3 +8,9 @@ out/
 .cache/
 compile_commands.json
 CMakeSettings.json
+.idea/
+cmake-build-*/
+*.o
+*.so
+*.a
+.vscode/
