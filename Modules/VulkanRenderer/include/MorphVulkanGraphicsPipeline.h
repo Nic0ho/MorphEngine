@@ -20,7 +20,7 @@ private:
     void CreateDescriptorPool(int NumImages);
     void AllocateDescriptorSets(int NumImages);
     void CreateDescriptorSets(int NumImages, const SimpleMesh* pMesh, std::vector<BufferAndMemory>& UniformBuffers, int UniformDataSize);
-    void CreateDescriptorSetLayout(std::vector<BufferAndMemory>& UniformBuffers, int UniformDataSize);
+    void CreateDescriptorSetLayout(std::vector<BufferAndMemory>& UniformBuffers, int UniformDataSize, VulkanTexture* pTex);
     void UpdateDescriptorSets(int NumImages, const SimpleMesh* pMesh, std::vector<BufferAndMemory>& UniformBuffers, int UniformDataSize);
 
     VkDevice m_device = NULL;

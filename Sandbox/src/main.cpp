@@ -44,13 +44,13 @@ public:
 
         m_vkCore.Init(pAppName, m_pWindow);
         m_numImages = m_vkCore.GetNumImages();
-        m_pQueue    = m_vkCore.GetQueue();
+        m_pQueue = m_vkCore.GetQueue();
 
-        m_renderPass  = m_vkCore.CreateSimpleRenderPass();
+        m_renderPass = m_vkCore.CreateSimpleRenderPass();
         m_frameBuffers = m_vkCore.CreateFramebuffer(m_renderPass);
 
         CreateShaders();
-        CreateVertexBuffer();
+        CreateMesh();
         CreateUniformBuffers();
         CreatePipeline();
         CreateCommandBuffers();
@@ -125,12 +125,25 @@ public:
     void Execute()
     {
         float prevTime = (float)glfwGetTime();
+        
+        int frameCount = 0;
+        float lastFpsTime = prevTime;
 
         while (!glfwWindowShouldClose(m_pWindow))
         {
             float curTime = (float)glfwGetTime();
-            float dt      = curTime - prevTime;
+            float dt = curTime - prevTime;
             prevTime = curTime;
+
+            frameCount++;
+            if (curTime - lastFpsTime >= 1.0f)
+            {
+                char titleBuffer[256];
+                snprintf(titleBuffer, sizeof(titleBuffer), "%s - FPS: %d", APP_NAME, frameCount);
+                glfwSetWindowTitle(m_pWindow, titleBuffer);
+                frameCount = 0;
+                lastFpsTime = curTime;
+            }
 
             ProcessCameraInput(dt);
 
@@ -150,24 +163,44 @@ private:
         printf("Created command buffers\n");
     }
 
+    void CreateMesh()
+    {
+        CreateVertexBuffer();
+        LoadTexture();
+    }
+
     void CreateVertexBuffer()
     {
         struct Vertex
         {
-            Vertex(float x, float y, float z, float u, float v)
-                : x(x), y(y), z(z), u(u), v(v) {}
-            float x, y, z, u, v;
+            Vertex(const glm::vec3& p, const glm::vec2& t)
+            {
+                Pos = p;
+                Tex = t;
+            }
+
+            glm::vec3 Pos;
+            glm::vec2 Tex;
         };
 
         std::vector<Vertex> Vertices =
         {
-            Vertex(-1.f, -1.f, 0.f,  0.f, 0.f),
-            Vertex( 1.f, -1.f, 0.f,  1.f, 0.f),
-            Vertex( 0.f,  1.f, 0.f,  0.5f, 1.f)
+            Vertex({-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}),
+            Vertex({-1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}),
+            Vertex({1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}),
+            Vertex({-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}),
+            Vertex({1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}),
+            Vertex({1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}),
         };
 
         m_mesh.m_vertexBufferSize = sizeof(Vertices[0]) * Vertices.size();
         m_mesh.m_vb = m_vkCore.CreateVertexBuffer(Vertices.data(), m_mesh.m_vertexBufferSize);
+    }
+
+    void LoadTexture()
+    {
+        m_mesh.m_pTex = new MorphVK::VulkanTexture;
+        m_vkCore.CreateTexture("assets/usagi1.png", *(m_mesh.m_pTex));
     }
 
     struct UniformData { glm::mat4 WVP; };
@@ -182,12 +215,7 @@ private:
     }
 
     void CreatePipeline()
-    {
-        m_pPipeline = new MorphVK::GraphicsPipeline(
-            m_vkCore.GetDevice(), m_pWindow, m_renderPass,
-            m_vs, m_fs, &m_mesh,
-            m_numImages, m_uniformBuffers, sizeof(UniformData));
-    }
+    { m_pPipeline = new MorphVK::GraphicsPipeline(m_vkCore.GetDevice(), m_pWindow, m_renderPass, m_vs, m_fs, &m_mesh, m_numImages, m_uniformBuffers, sizeof(UniformData)); }
 
     void RecordCommandBuffers()
     {
@@ -200,16 +228,16 @@ private:
 
         VkRenderPassBeginInfo RenderPassBeginInfo =
         {
-            .sType       = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-            .pNext       = NULL,
-            .renderPass  = m_renderPass,
-            .renderArea  =
+            .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+            .pNext = NULL,
+            .renderPass = m_renderPass,
+            .renderArea =
             {
                 .offset = { 0, 0 },
                 .extent = { (uint32_t)W, (uint32_t)H }
             },
             .clearValueCount = 1,
-            .pClearValues    = &ClearValue
+            .pClearValues = &ClearValue
         };
 
         for(uint i = 0; i < m_cmdBufs.size(); i++)
@@ -220,7 +248,13 @@ private:
             vkCmdBeginRenderPass(m_cmdBufs[i], &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
             m_pPipeline->Bind(m_cmdBufs[i], i);
-            vkCmdDraw(m_cmdBufs[i], 3, 1, 0, 0);
+
+            u32 VertexCount = 6;
+            u32 InstanceCount = 1;
+            u32 FirstIndex = 0;
+            u32 FirstInstance = 0;
+
+            vkCmdDraw(m_cmdBufs[i], VertexCount, InstanceCount, FirstIndex, FirstInstance);
 
             vkCmdEndRenderPass(m_cmdBufs[i]);
 
@@ -231,17 +265,16 @@ private:
         printf("Command buffers recorded\n");
     }
 
-
     void ProcessCameraInput(float dt)
     {
         if (!m_isCameraActive) return;
         using CM = Morph::CameraMovement;
-        if (m_keys[GLFW_KEY_W]) m_camera.ProcessKeyboard(CM::Forward,  dt);
+        if (m_keys[GLFW_KEY_W]) m_camera.ProcessKeyboard(CM::Forward, dt);
         if (m_keys[GLFW_KEY_S]) m_camera.ProcessKeyboard(CM::Backward, dt);
-        if (m_keys[GLFW_KEY_A]) m_camera.ProcessKeyboard(CM::Left,     dt);
-        if (m_keys[GLFW_KEY_D]) m_camera.ProcessKeyboard(CM::Right,    dt);
-        if (m_keys[GLFW_KEY_E]) m_camera.ProcessKeyboard(CM::Up,       dt);
-        if (m_keys[GLFW_KEY_Q]) m_camera.ProcessKeyboard(CM::Down,     dt);
+        if (m_keys[GLFW_KEY_A]) m_camera.ProcessKeyboard(CM::Left, dt);
+        if (m_keys[GLFW_KEY_D]) m_camera.ProcessKeyboard(CM::Right, dt);
+        if (m_keys[GLFW_KEY_E]) m_camera.ProcessKeyboard(CM::Up, dt);
+        if (m_keys[GLFW_KEY_Q]) m_camera.ProcessKeyboard(CM::Down, dt);
     }
 
     void UpdateUniformBuffers(uint32_t ImageIndex, float dt)
@@ -260,20 +293,20 @@ private:
         m_uniformBuffers[ImageIndex].Update(m_vkCore.GetDevice(), &ubo, sizeof(ubo));
     }
 
-    MorphVK::VulkanCore              m_vkCore;
-    MorphVK::VulkanQueue*            m_pQueue     = NULL;
-    int                              m_numImages  = 0;
-    std::vector<VkCommandBuffer>     m_cmdBufs;
-    VkRenderPass                     m_renderPass = VK_NULL_HANDLE;
-    std::vector<VkFramebuffer>       m_frameBuffers;
-    VkShaderModule                   m_vs         = VK_NULL_HANDLE;
-    VkShaderModule                   m_fs         = VK_NULL_HANDLE;
-    MorphVK::GraphicsPipeline*       m_pPipeline  = NULL;
-    MorphVK::SimpleMesh              m_mesh;
+    MorphVK::VulkanCore m_vkCore;
+    MorphVK::VulkanQueue* m_pQueue = NULL;
+    int m_numImages  = 0;
+    std::vector<VkCommandBuffer> m_cmdBufs;
+    VkRenderPass m_renderPass = VK_NULL_HANDLE;
+    std::vector<VkFramebuffer> m_frameBuffers;
+    VkShaderModule m_vs = VK_NULL_HANDLE;
+    VkShaderModule m_fs = VK_NULL_HANDLE;
+    MorphVK::GraphicsPipeline* m_pPipeline = NULL;
+    MorphVK::SimpleMesh m_mesh;
     std::vector<MorphVK::BufferAndMemory> m_uniformBuffers;
-    GLFWwindow*                      m_pWindow    = NULL;
-    int                              m_windowWidth  = 0;
-    int                              m_windowHeight = 0;
+    GLFWwindow* m_pWindow = NULL;
+    int m_windowWidth = 0;
+    int m_windowHeight = 0;
 
     Morph::Camera m_camera;
 

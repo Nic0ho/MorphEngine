@@ -8,7 +8,8 @@ add_library(VulkanRenderer STATIC
     src/wrapper.cpp
     src/shader.cpp
     src/graphics_pipeline.cpp
-    src/glfw_vulkan.cpp)
+    src/glfw_vulkan.cpp
+    src/stb_image.cpp)
 
 if (WIN32)
     target_link_directories(VulkanRenderer PUBLIC
@@ -18,11 +19,22 @@ if (WIN32)
         Vulkan::Vulkan
         glfw
         MorphEngine
-        glslangd
-        glslang-default-resource-limitsd
-        SPIRVd
-        SPIRV-Toolsd
-        SPIRV-Tools-optd)
+        
+        debug glslangd
+        optimized glslang
+        
+        debug glslang-default-resource-limitsd
+        optimized glslang-default-resource-limits
+        
+        debug SPIRVd
+        optimized SPIRV
+        
+        debug SPIRV-Toolsd
+        optimized SPIRV-Tools
+        
+        debug SPIRV-Tools-optd
+        optimized SPIRV-Tools-opt
+    )
 else()
     target_link_libraries(VulkanRenderer PRIVATE
         Vulkan::Vulkan

@@ -22,6 +22,20 @@ public:
 
     void Destroy(VkDevice Device);
 };
+
+class VulkanTexture
+{
+public:
+    VulkanTexture() = default;
+
+    VkImage m_image = VK_NULL_HANDLE;
+    VkDeviceMemory m_mem = VK_NULL_HANDLE;
+    VkImageView m_view = VK_NULL_HANDLE;
+    VkSampler m_sampler = VK_NULL_HANDLE;
+
+    void Destroy(VkDevice Device);
+};
+
 class VulkanCore
 {
 public:
@@ -50,6 +64,11 @@ public:
 
     void GetFramebufferSize(int& Width, int& Height) const;
     std::vector<BufferAndMemory> CreateUniformBuffers(size_t Size);
+
+    void CreateTexture(const char* pFilename, VulkanTexture& Tex);
+
+    VulkanTexture CreateDepthBuffer();
+
 private:
     void CreateInstance(const char* pAppName);
     void CreateDebugCallback();
@@ -61,6 +80,14 @@ private:
     void CopyBuffer(VkBuffer Dst, VkBuffer Src, VkDeviceSize Size);
     BufferAndMemory CreateBuffer(VkDeviceSize Size, VkBufferUsageFlags Usage, VkMemoryPropertyFlags Properties);
     BufferAndMemory CreateUniformBuffer(size_t Size);
+
+    void CreateTextureImageFromData(VulkanTexture& Tex, const void* pPixels, u32 ImageWidth, u32 ImageHeight, VkFormat TexFormat);
+    void CreateImage(VulkanTexture& Tex, u32 ImageWidth, u32 ImageHeight, VkFormat TexFormat, VkImageUsageFlags UsageFlags, VkMemoryPropertyFlagBits PropertyFlags);
+    void UpdateTextureImage(VulkanTexture& Tex, u32 ImageWidth, u32 ImageHeight, VkFormat TexFormat, const void* pPixels);
+    void CopyBufferToImage(VkImage Dst, VkBuffer Src, u32 ImageWidth, u32 ImageHeight);
+    void TransitionImageLayout(VkImage& Image, VkFormat Format, VkImageLayout OldLayout, VkImageLayout NewLayout);
+    void SubmitCopyCommand();
+    void CopyBufferToBuffer(VkBuffer Dst, VkBuffer Src, VkDeviceSize Size);
 
     VkInstance m_instance = VK_NULL_HANDLE;
     VkDebugUtilsMessengerEXT m_debugMessenger = VK_NULL_HANDLE;
@@ -77,5 +104,7 @@ private:
     VulkanQueue m_queue;
     std::vector<VkFramebuffer> m_frameBuffers;
     VkCommandBuffer m_copyCmdBuf;
+    int m_windowWidth = 0;
+    int m_windowHeight = 0;
 };
 }
