@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <array>
+
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
@@ -42,7 +44,7 @@ public:
 
         glfwSetInputMode(m_pWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-        m_vkCore.Init(pAppName, m_pWindow);
+        m_vkCore.Init(pAppName, m_pWindow, true);
         m_numImages = m_vkCore.GetNumImages();
         m_pQueue = m_vkCore.GetQueue();
 
@@ -191,6 +193,10 @@ private:
             Vertex({-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}),
             Vertex({1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}),
             Vertex({1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}),
+
+            Vertex({-1.0f, -1.0f, 5.0f}, {0.0f, 0.0f}),
+            Vertex({-1.0f, 1.0f, 5.0f}, {0.0f, 1.0f}),
+            Vertex({1.0f, 1.0f, 5.0f}, {1.0f, 1.0f}),
         };
 
         m_mesh.m_vertexBufferSize = sizeof(Vertices[0]) * Vertices.size();
@@ -215,13 +221,13 @@ private:
     }
 
     void CreatePipeline()
-    { m_pPipeline = new MorphVK::GraphicsPipeline(m_vkCore.GetDevice(), m_pWindow, m_renderPass, m_vs, m_fs, &m_mesh, m_numImages, m_uniformBuffers, sizeof(UniformData)); }
+    { m_pPipeline = new MorphVK::GraphicsPipeline(m_vkCore.GetDevice(), m_pWindow, m_renderPass, m_vs, m_fs, &m_mesh, m_numImages, m_uniformBuffers, sizeof(UniformData), true); }
 
     void RecordCommandBuffers()
     {
-        VkClearColorValue ClearColor = { 0.1f, 0.1f, 0.15f, 1.0f };
-        VkClearValue ClearValue;
-        ClearValue.color = ClearColor;
+        std::array<VkClearValue, 2> ClearValues{};
+        ClearValues[0].color = { { 0.1f, 0.1f, 0.15f, 1.0f } };
+        ClearValues[1].depthStencil = { 1.0f, 0 };
 
         int W, H;
         glfwGetFramebufferSize(m_pWindow, &W, &H);
@@ -236,8 +242,8 @@ private:
                 .offset = { 0, 0 },
                 .extent = { (uint32_t)W, (uint32_t)H }
             },
-            .clearValueCount = 1,
-            .pClearValues = &ClearValue
+            .clearValueCount = (u32)ClearValues.size(),
+            .pClearValues = ClearValues.data()
         };
 
         for(uint i = 0; i < m_cmdBufs.size(); i++)
@@ -249,7 +255,7 @@ private:
 
             m_pPipeline->Bind(m_cmdBufs[i], i);
 
-            u32 VertexCount = 6;
+            u32 VertexCount = 9;
             u32 InstanceCount = 1;
             u32 FirstIndex = 0;
             u32 FirstInstance = 0;

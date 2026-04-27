@@ -11,7 +11,7 @@ namespace MorphVK
 class GraphicsPipeline
 {
 public:
-    GraphicsPipeline(VkDevice Device, GLFWwindow* pWindow, VkRenderPass RenderPass, VkShaderModule vs, VkShaderModule fs, SimpleMesh* pMesh, int numImages, std::vector<BufferAndMemory>& UniformBuffers, int UniformDataSize);
+    GraphicsPipeline(VkDevice Device, GLFWwindow* pWindow, VkRenderPass RenderPass, VkShaderModule vs, VkShaderModule fs, SimpleMesh* pMesh, int numImages, std::vector<BufferAndMemory>& UniformBuffers, int UniformDataSize, bool DepthEnabled);
 
     ~GraphicsPipeline();
     

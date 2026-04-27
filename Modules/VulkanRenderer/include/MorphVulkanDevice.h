@@ -18,6 +18,7 @@ struct PhysicalDevice
     VkPhysicalDeviceMemoryProperties m_memProps;
     std::vector<VkPresentModeKHR> m_presentModes;
     VkPhysicalDeviceFeatures m_features;
+    VkFormat m_depthFormat;
 };
 
 class VulkanPhysicalDevices

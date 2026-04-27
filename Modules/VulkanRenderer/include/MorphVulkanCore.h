@@ -43,7 +43,7 @@ public:
 
     ~VulkanCore();
 
-    void Init(const char* pAppName, GLFWwindow* pWindow);
+    void Init(const char* pAppName, GLFWwindow* pWindow, bool DepthEnabled = false);
 
     int GetNumImages() const { return (int)m_images.size(); }
 
@@ -66,8 +66,8 @@ public:
     std::vector<BufferAndMemory> CreateUniformBuffers(size_t Size);
 
     void CreateTexture(const char* pFilename, VulkanTexture& Tex);
-
     VulkanTexture CreateDepthBuffer();
+    void CreateDepthResources();
 
 private:
     void CreateInstance(const char* pAppName);
@@ -100,11 +100,13 @@ private:
     VkSwapchainKHR m_swapChain;
     std::vector<VkImage> m_images;
     std::vector<VkImageView> m_imageViews;
+    std::vector<VulkanTexture> m_depthImages;
     VkCommandPool m_cmdBufPool;
     VulkanQueue m_queue;
     std::vector<VkFramebuffer> m_frameBuffers;
     VkCommandBuffer m_copyCmdBuf;
     int m_windowWidth = 0;
     int m_windowHeight = 0;
+    bool m_depthEnabled = false;
 };
 }

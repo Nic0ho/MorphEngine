@@ -10,7 +10,7 @@
 namespace MorphVK
 {
 
-GraphicsPipeline::GraphicsPipeline(VkDevice Device, GLFWwindow* pWindow, VkRenderPass RenderPass, VkShaderModule vs, VkShaderModule fs, SimpleMesh* pMesh, int numImages, std::vector<BufferAndMemory>& UniformBuffers, int UniformDataSize)
+GraphicsPipeline::GraphicsPipeline(VkDevice Device, GLFWwindow* pWindow, VkRenderPass RenderPass, VkShaderModule vs, VkShaderModule fs, SimpleMesh* pMesh, int numImages, std::vector<BufferAndMemory>& UniformBuffers, int UniformDataSize, bool DepthEnabled)
 {
     m_device = Device;
 
@@ -87,6 +87,20 @@ GraphicsPipeline::GraphicsPipeline(VkDevice Device, GLFWwindow* pWindow, VkRende
         .minSampleShading = 1.0f
     };
 
+    VkPipelineDepthStencilStateCreateInfo DepthStencilState =
+    {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+        .depthTestEnable = VK_TRUE,
+        .depthWriteEnable = VK_TRUE,
+        .depthCompareOp = VK_COMPARE_OP_LESS,
+        .depthBoundsTestEnable = VK_FALSE,
+        .stencilTestEnable = VK_FALSE,
+        .front = {},
+        .back = {},
+        .minDepthBounds = 0.0f,
+        .maxDepthBounds = 1.0f
+    };
+
     VkPipelineColorBlendAttachmentState BlendAttachState =
     {
         .blendEnable = VK_FALSE,
@@ -128,6 +142,7 @@ GraphicsPipeline::GraphicsPipeline(VkDevice Device, GLFWwindow* pWindow, VkRende
         .pViewportState = &VPCreateInfo,
         .pRasterizationState = &RastCreateInfo,
         .pMultisampleState = &PipelineMSCreateInfo,
+        .pDepthStencilState = DepthEnabled ? &DepthStencilState : VK_NULL_HANDLE,
         .pColorBlendState = &BlendCreateInfo,
         .layout = m_pipelineLayout,
         .renderPass = RenderPass,

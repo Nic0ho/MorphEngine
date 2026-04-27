@@ -63,9 +63,11 @@ VulkanCore::~VulkanCore()
     printf("Vulkan instance destroyed\n");
 }
 
-void VulkanCore::Init(const char* pAppName, GLFWwindow* pWindow)
+void VulkanCore::Init(const char* pAppName, GLFWwindow* pWindow, bool DepthEnabled)
 {
     m_pWindow = pWindow;
+    m_depthEnabled = DepthEnabled;
+    GetFramebufferSize(m_windowWidth, m_windowHeight);
     CreateInstance(pAppName);
 
 #ifndef NDEBUG
@@ -80,6 +82,7 @@ void VulkanCore::Init(const char* pAppName, GLFWwindow* pWindow)
     CreateCommandBufferPool();
     m_queue.Init(m_device, m_swapChain, m_queueFamily, 0);
     CreateCommandBuffers(1, &m_copyCmdBuf);
+    if (DepthEnabled) CreateDepthResources();
 }
 
 void VulkanCore::CreateInstance(const char* pAppName)
@@ -394,6 +397,46 @@ void VulkanCore::FreeCommandBuffers(u32 Count, const VkCommandBuffer* pCmdBufs)
 
 VkRenderPass VulkanCore::CreateSimpleRenderPass()
 {
+    VkAttachmentDescription ColorAttachment =
+    {
+        .flags = 0,
+        .format = m_swapChainSurfaceFormat.format,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+    };
+
+    VkAttachmentReference ColorAttachRef =
+    {
+        .attachment = 0,
+        .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+    };
+
+    VkFormat DepthFormat = m_physDevices.Selected().m_depthFormat;
+
+    VkAttachmentDescription DepthAttachment =
+    {
+        .flags = 0,
+        .format = DepthFormat,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+        .storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+        .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+    };
+
+    VkAttachmentReference DepthAttachmentRef =
+    {
+        .attachment = 1,
+        .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+    };
+
     VkAttachmentDescription AttachDesc =
     {
         .flags = 0,
@@ -420,20 +463,25 @@ VkRenderPass VulkanCore::CreateSimpleRenderPass()
         .inputAttachmentCount = 0,
         .pInputAttachments = NULL,
         .colorAttachmentCount = 1,
-        .pColorAttachments = &AttachRef,
+        .pColorAttachments = &ColorAttachRef,
         .pResolveAttachments = NULL,
-        .pDepthStencilAttachment = NULL,
+        .pDepthStencilAttachment = m_depthEnabled ? &DepthAttachmentRef : NULL,
         .preserveAttachmentCount = 0,
         .pPreserveAttachments = NULL
     };
+
+    std::vector<VkAttachmentDescription> Attachments;
+    Attachments.push_back(ColorAttachment);
+
+    if(m_depthEnabled) Attachments.push_back(DepthAttachment);
 
     VkRenderPassCreateInfo RenderPassCreateInfo =
     {
         .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
         .pNext = NULL,
         .flags = 0,
-        .attachmentCount = 1,
-        .pAttachments = &AttachDesc,
+        .attachmentCount = (u32)Attachments.size(),
+        .pAttachments = Attachments.data(),
         .subpassCount = 1,
         .pSubpasses = &SubpassDesc,
         .dependencyCount = 0,
@@ -452,26 +500,31 @@ VkRenderPass VulkanCore::CreateSimpleRenderPass()
 
 std::vector<VkFramebuffer> VulkanCore::CreateFramebuffer(VkRenderPass RenderPass)
 {
+    std::vector<VkFramebuffer> FrameBuffers;
     m_frameBuffers.resize(m_images.size());
 
     int WindowWidth, WindowHeight;
 
     glfwGetFramebufferSize(m_pWindow, &WindowWidth, &WindowHeight);
 
-    VkResult res;
-
     for(uint i = 0; i < m_images.size(); i++)
     {
-        VkFramebufferCreateInfo fbCreateInfo = {};
-        fbCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        fbCreateInfo.renderPass = RenderPass;
-        fbCreateInfo.attachmentCount = 1;
-        fbCreateInfo.pAttachments = &m_imageViews[i];
-        fbCreateInfo.width = WindowWidth;
-        fbCreateInfo.height = WindowHeight;
-        fbCreateInfo.layers = 1;
+        std::vector<VkImageView> Attachments;
+        Attachments.push_back(m_imageViews[i]);
+        if (m_depthEnabled) Attachments.push_back(m_depthImages[i].m_view);
 
-        res = vkCreateFramebuffer(m_device, &fbCreateInfo, NULL, &m_frameBuffers[i]);
+        VkFramebufferCreateInfo fbCreateInfo =
+        {
+            .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+            .renderPass = RenderPass,
+            .attachmentCount = (u32)Attachments.size(),
+            .pAttachments = Attachments.data(),
+            .width = (u32)m_windowWidth,
+            .height = (u32)m_windowHeight,
+            .layers = 1
+        };
+
+        VkResult res = vkCreateFramebuffer(m_device, &fbCreateInfo, NULL, &m_frameBuffers[i]);
         CHECK_VK_RESULT(res, "vkCreateFrameBuffer\n");
     }
 
@@ -810,5 +863,25 @@ void VulkanCore::CopyBufferToImage(VkImage Dst, VkBuffer Src, u32 ImageWidth, u3
 
     vkCmdCopyBufferToImage(m_copyCmdBuf, Src, Dst, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &BufferImageCopy);
     SubmitCopyCommand();
+}
+
+void VulkanCore::CreateDepthResources()
+{
+    int NumSwapChainImages = (int)m_images.size();
+
+    m_depthImages.resize(NumSwapChainImages);
+
+    VkFormat DepthFormat = m_physDevices.Selected().m_depthFormat;
+
+    for (int i = 0; i < NumSwapChainImages; i++)
+    {
+        VkImageUsageFlagBits Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        VkMemoryPropertyFlagBits PropertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        CreateImage(m_depthImages[i], m_windowWidth, m_windowHeight, DepthFormat, Usage, PropertyFlags);
+        VkImageLayout OldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        VkImageLayout NewLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        TransitionImageLayout(m_depthImages[i].m_image, DepthFormat, OldLayout, NewLayout);
+        m_depthImages[i].m_view = CreateImageView(m_device, m_depthImages[i].m_image, DepthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+    }
 }
 }
