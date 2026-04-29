@@ -1,0 +1,8 @@
+//
+// Created by artem on 29.04.2026.
+//
+
+#ifndef MORPHENGINE_COREMODEL_H
+#define MORPHENGINE_COREMODEL_H
+
+#endif //MORPHENGINE_COREMODEL_H

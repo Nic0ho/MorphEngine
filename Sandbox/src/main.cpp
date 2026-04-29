@@ -187,16 +187,49 @@ private:
 
         std::vector<Vertex> Vertices =
         {
-            Vertex({-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}),
-            Vertex({-1.0f, 1.0f, 0.0f}, {0.0f, 1.0f}),
-            Vertex({1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}),
-            Vertex({-1.0f, -1.0f, 0.0f}, {0.0f, 0.0f}),
-            Vertex({1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}),
-            Vertex({1.0f, -1.0f, 0.0f}, {1.0f, 0.0f}),
-
-            Vertex({-1.0f, -1.0f, 5.0f}, {0.0f, 0.0f}),
-            Vertex({-1.0f, 1.0f, 5.0f}, {0.0f, 1.0f}),
-            Vertex({1.0f, 1.0f, 5.0f}, {1.0f, 1.0f}),
+            //cube
+            //front
+            Vertex({-1.0f, -1.0f, 1.0f}, {0.0f, 1.0f}),
+            Vertex({-1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}),
+            Vertex({1.0f, -1.0f, 1.0f}, {1.0f, 1.0f}),
+            Vertex({-1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}),
+            Vertex({1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}),
+            Vertex({1.0f, -1.0f, 1.0f}, {1.0f, 1.0f}),
+            //back
+            Vertex({-1.0f, -1.0f, -1.0f}, {1.0f, 1.0f}),
+            Vertex({-1.0f, 1.0f, -1.0f}, {1.0f, 0.0f}),
+            Vertex({1.0f, -1.0f, -1.0f}, {0.0f, 1.0f}),
+            Vertex({-1.0f, 1.0f, -1.0f}, {1.0f, 0.0f}),
+            Vertex({1.0f, 1.0f, -1.0f}, {0.0f, 0.0f}),
+            Vertex({1.0f, -1.0f, -1.0f}, {0.0f, 1.0f}),
+            //left
+            Vertex({-1.0f, -1.0f, -1.0f}, {0.0f, 0.0f}),
+            Vertex({-1.0f, 1.0f, -1.0f}, {0.0f, 1.0f}),
+            Vertex({-1.0f, -1.0f, 1.0f}, {1.0f, 0.0f}),
+            Vertex({-1.0f, 1.0f, -1.0f}, {0.0f, 1.0f}),
+            Vertex({-1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}),
+            Vertex({-1.0f, -1.0f, 1.0f}, {1.0f, 0.0f}),
+            //right
+            Vertex({1.0f, -1.0f, -1.0f}, {1.0f, 0.0f}),
+            Vertex({1.0f, 1.0f, -1.0f}, {1.0f, 1.0f}),
+            Vertex({1.0f, -1.0f, 1.0f}, {0.0f, 0.0f}),
+            Vertex({1.0f, 1.0f, -1.0f}, {1.0f, 1.0f}),
+            Vertex({1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}),
+            Vertex({1.0f, -1.0f, 1.0f}, {0.0f, 0.0f}),
+            //top
+            Vertex({-1.0f, 1.0f, -1.0f}, {0.5f, -0.207f }),
+            Vertex({-1.0f, 1.0f, 1.0f}, {-0.207f, 0.5f}),
+            Vertex({1.0f, 1.0f, 1.0f}, {0.5f, 1.207f }),
+            Vertex({-1.0f, 1.0f, -1.0f}, {0.5f, -0.207f}),
+            Vertex({1.0f, 1.0f, 1.0f}, {0.5f, 1.207f}),
+            Vertex({1.0f, 1.0f, -1.0f}, {1.207f, 0.5f}),
+            //bottom
+            Vertex({-1.0f, -1.0f, -1.0f}, {0.5f, -0.207f }),
+            Vertex({-1.0f, -1.0f, 1.0f}, {-0.207f, 0.5f}),
+            Vertex({1.0f, -1.0f, 1.0f}, {0.5f, 1.207f }),
+            Vertex({-1.0f, -1.0f, -1.0f}, {0.5f, -0.207f}),
+            Vertex({1.0f, -1.0f, 1.0f}, {0.5f, 1.207f}),
+            Vertex({1.0f, -1.0f, -1.0f}, {1.207f, 0.5f}),
         };
 
         m_mesh.m_vertexBufferSize = sizeof(Vertices[0]) * Vertices.size();
@@ -255,7 +288,7 @@ private:
 
             m_pPipeline->Bind(m_cmdBufs[i], i);
 
-            u32 VertexCount = 9;
+            u32 VertexCount = 36;
             u32 InstanceCount = 1;
             u32 FirstIndex = 0;
             u32 FirstInstance = 0;
