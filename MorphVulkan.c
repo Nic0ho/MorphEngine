@@ -137,6 +137,122 @@ static bool  pickPhysicalDevice(MorphVulkanContext* ctx)
     return true;
 }
 
+static VkSurfaceFormatKHR pickSurfaceFormat(VkPhysicalDevice device, VkSurfaceKHR surface)
+{
+    u32 count = 0;
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &count, NULL);
+
+    VkSurfaceFormatKHR* formats = malloc(count* sizeof(VkSurfaceFormatKHR));
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &count, formats);
+
+    //prefer sRGB B8G8R8A8
+    VkSurfaceFormatKHR result = formats[0]; //fallback
+    for (u32 i = 0; i < count; i++)
+    {
+        if (formats[i].format == VK_FORMAT_B8G8R8A8_SRGB && formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+        {
+            result = formats[i];
+            break;
+        }
+    }
+    
+    free(formats);
+    return result;
+}
+
+static VkPresentModeKHR pickPresentMode(VkPhysicalDevice device, VkSurfaceKHR surface)
+{
+    u32 count = 0;
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &count, NULL);
+
+    VkPresentModeKHR* modes = malloc(count * sizeof(VkPresentModeKHR));
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &count, modes);
+
+    //prefer mailbox, fallback to FIFO
+    VkPresentModeKHR result = VK_PRESENT_MODE_FIFO_KHR;
+    for (u32 i = 0; i < count; i++)
+    {
+        if (modes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
+        {
+            result = VK_PRESENT_MODE_MAILBOX_KHR;
+            break;
+        }
+    }
+
+    free(modes);
+    return result;
+}
+
+static bool createSwapchain(MorphVulkanContext* ctx, GLFWwindow* window)
+{
+    //query what the surface supports
+    VkSurfaceCapabilitiesKHR caps;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(ctx->physicalDevice, ctx->surface, &caps);
+
+    VkSurfaceFormatKHR format = pickSurfaceFormat(ctx->physicalDevice, ctx->surface);
+    VkPresentModeKHR mode = pickPresentMode(ctx->physicalDevice, ctx->surface);
+
+    //extent = resolution of swapchain images
+    //query actual pixel size from GLFW - differs from screen coord on hight-DPI
+    VkExtent2D extent;
+    if (caps.currentExtent.width != UINT32_MAX)
+    {
+        extent = caps.currentExtent;
+    }
+    else
+    {
+        int w, h;
+        glfwGetFramebufferSize(window, &w, &h);
+        extent.width = (u32)w;
+        extent.height = (u32)h;
+
+        //clamp to what the surface supports
+        if (extent.width < caps.minImageExtent.width)   extent.width = caps.minImageExtent.width;
+        if (extent.width > caps.maxImageExtent.width)   extent.width = caps.maxImageExtent.width;
+        if (extent.height < caps.minImageExtent.height) extent.height = caps.minImageExtent.height;
+        if (extent.height > caps.maxImageExtent.height) extent.height = caps.maxImageExtent.height;
+    }
+
+    //request one more image than minumim for better pipelining (but dont exceed maximum, where 0 means no maximum)
+    u32 imageCount = caps.minImageCount + 1;
+    if (caps.maxImageCount > 0 && imageCount > caps.maxImageCount)
+        imageCount = caps.maxImageCount;
+
+    VkSwapchainCreateInfoKHR swapchainInfo = {0};
+    swapchainInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+    swapchainInfo.surface = ctx->surface;
+    swapchainInfo.minImageCount = imageCount;
+    swapchainInfo.imageFormat = format.format;
+    swapchainInfo.imageColorSpace = format.colorSpace;
+    swapchainInfo.imageExtent = extent;
+    swapchainInfo.imageArrayLayers = 1; //always will be 1 unless VR stereo rendering
+    swapchainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    swapchainInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE; // one queue family owns images
+    swapchainInfo.preTransform = caps.currentTransform; //no extra rotation/flip
+    swapchainInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; //no window transparancy
+    swapchainInfo.presentMode = mode;
+    swapchainInfo.clipped = VK_TRUE; //dont render pixels hidden behind other windows
+
+    if (vkCreateSwapchainKHR(ctx->logicalDevice, &swapchainInfo, NULL, & ctx->swapchain))
+    {
+        printf("[VULKAN ERROR] Failed to create swapchain!\n");
+        return false;
+    }
+
+    //retrieve the actual images the swapchain created (Vulkan may have created more than required)
+    vkGetSwapchainImagesKHR(ctx->logicalDevice, ctx->swapchain, &ctx->swapchainImageCount, NULL);
+
+    ctx->swapchainImages = malloc(ctx->swapchainImageCount * sizeof(VkImage));
+    vkGetSwapchainImagesKHR(ctx->logicalDevice, ctx->swapchain, &ctx->swapchainImageCount, ctx->swapchainImages);
+
+    ctx->swapchainFormat = format.format;
+    ctx->swapchainExtent = extent;
+
+    printf("[VULKAN] Swapchain created (%ux%u, %u images)\n", extent.width, extent.height, ctx->swapchainImageCount);
+    
+    return true;
+}
+
 static bool createLogicalDevice(MorphVulkanContext* ctx)
 {
     // tell the Vulkan that i need one queue from the graphics family (1.0 is the highest priority)
@@ -278,6 +394,10 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
     if (!createLogicalDevice(ctx))
         return false;
 
+    //swapchain
+    if (!createSwapchain(ctx, window))
+        return false;
+
     return true;
 }
 
@@ -291,6 +411,10 @@ void morphVulkanShutdown(MorphVulkanContext *ctx)
         if (destroyFn)
             destroyFn(ctx->instance, ctx->debugMessenger, NULL);
     }
+
+     // swapchain shutdown
+    free(ctx->swapchainImages);
+    vkDestroySwapchainKHR(ctx->logicalDevice, ctx->swapchain, NULL);
 
     // logical device shutdown
     vkDestroyDevice(ctx->logicalDevice, NULL);

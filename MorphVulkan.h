@@ -6,13 +6,19 @@
 
 typedef struct
 {
-    VkInstance instance;
+    VkInstance               instance;
     VkDebugUtilsMessengerEXT debugMessenger;
-    VkPhysicalDevice  physicalDevice;
-    u32 graphicsFamily;
-    VkDevice logicalDevice;
-    VkQueue graphicsQueue;
-    VkSurfaceKHR surface;
+    VkPhysicalDevice         physicalDevice;
+    u32                      graphicsFamily;
+    VkDevice                 logicalDevice;
+    VkQueue                  graphicsQueue;
+    VkSurfaceKHR             surface;
+    VkSwapchainKHR           swapchain;
+    VkFormat                 swapchainFormat;
+    VkExtent2D               swapchainExtent;
+    VkImage*                 swapchainImages;
+    u32                      swapchainImageCount;
+
 } MorphVulkanContext;
 
 bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window);
