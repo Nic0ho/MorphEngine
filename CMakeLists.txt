@@ -11,6 +11,7 @@ find_package(Vulkan REQUIRED)
 
 #executable
 add_executable(MorphEngine main.c morphVulkan.c)
+target_compile_definitions(MorphEngine PRIVATE _CRT_SECURE_NO_WARNINGS)
 
 #directories
 target_include_directories(MorphEngine PRIVATE

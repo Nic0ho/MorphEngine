@@ -19,6 +19,8 @@ typedef struct
     VkImage*                 swapchainImages;
     u32                      swapchainImageCount;
     VkImageView*             swapchainImageViews;
+    VkPipelineLayout         pipelineLayout;
+    VkPipeline               graphicsPipeline;
 } MorphVulkanContext;
 
 bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window);

@@ -375,6 +375,139 @@ static bool createImageViews(MorphVulkanContext* ctx)
     return true;
 }
 
+static bool createGraphicsPipeline(MorphVulkanContext* ctx)
+{
+    //load shaders
+    VkShaderModule vertShader = loadShader(ctx->logicalDevice, "shaders/triangle.vert.spv");
+    VkShaderModule fragShader = loadShader(ctx->logicalDevice, "shaders/triangle.frag.spv");
+
+    if (vertShader == VK_NULL_HANDLE || fragShader == VK_NULL_HANDLE)
+    {
+        printf("[VULKAN ERROR] Failed to load shaders!\n");
+        return false;
+    }
+
+    //shader stage descriptors - tells pipeline whuch shader goes to which stage
+    VkPipelineShaderStageCreateInfo shaderStages[2] = {0};
+
+    //vert shader
+    shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    shaderStages[0].module = vertShader;
+    shaderStages[0].pName = "main"; //entry point function name in the shader
+
+    //frag shader
+    shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    shaderStages[1].module = fragShader;
+    shaderStages[1].pName = "main"; //entry point funtion name in the shader
+
+    //vertex input - empty, because harcoded in vertex shader
+    VkPipelineVertexInputStateCreateInfo vertexInput = {0};
+    vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+    //input assembly - how to interpret vertices
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly = {0};
+    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+    //viewport and scissor - seet as dynamic state so we can resize without recreating pipeline
+    VkPipelineViewportStateCreateInfo viewportState = {0};
+    viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewportState.viewportCount = 1;
+    viewportState.scissorCount = 1;
+    //actual values will set at drawtime via vkCmdSetViewport, vkCmdSetScissor
+
+    //resterization - how to turn triangles into fragments
+    VkPipelineRasterizationStateCreateInfo rasterizer = {0};
+    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizer.polygonMode = VK_POLYGON_MODE_FILL; //not wireframe
+    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT; //skip back-facing triangles
+    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE; //vertex winding order
+    rasterizer.lineWidth = 1.0f; //required even when not drawing lines
+    rasterizer.depthClampEnable = VK_FALSE;
+    rasterizer.rasterizerDiscardEnable = VK_FALSE;
+
+    //multisampling - disable for now, 1 sample per pixel
+    VkPipelineMultisampleStateCreateInfo multisampling = {0};
+    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisampling.sampleShadingEnable = VK_FALSE;
+
+    //color blend attachment - how to write to the color attachment
+    //blendEnable = VK_FALSE means just overwrite whatever was there
+    VkPipelineColorBlendAttachmentState colorBlendAttachment = {0};
+    colorBlendAttachment.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT |
+        VK_COLOR_COMPONENT_G_BIT |
+        VK_COLOR_COMPONENT_B_BIT |
+        VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.blendEnable = VK_FALSE;
+
+    VkPipelineColorBlendStateCreateInfo colorBlending = {0};
+    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.logicOpEnable = VK_FALSE;
+    colorBlending.attachmentCount = 1;
+    colorBlending.pAttachments = &colorBlendAttachment;
+
+    //dynamic state - which pipeline settings can change at draw time without recreating pipeline
+    VkDynamicState dynamicStates[] =
+    {
+        VK_DYNAMIC_STATE_VIEWPORT,
+        VK_DYNAMIC_STATE_SCISSOR
+    };
+
+    VkPipelineDynamicStateCreateInfo dynamicState = {0};
+    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamicState.dynamicStateCount = 2;
+    dynamicState.pDynamicStates = dynamicStates;
+
+    //pipeline layout - describes push counstannts and descriptor sets. Empty for now since triangle is harcoded
+    VkPipelineLayoutCreateInfo layoutInfo = {0};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+
+    if (vkCreatePipelineLayout(ctx->logicalDevice, &layoutInfo, NULL, &ctx->pipelineLayout) != VK_SUCCESS)
+    {
+        printf("[VULKAN ERROR] Failed to create pipeline layout!\n");
+        return false;
+    }
+
+    //dynamic rendering info - replaces render pass object. decsribes what format the collor attachment will have
+    VkPipelineRenderingCreateInfo renderingInfo = {0};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachmentFormats = &ctx->swapchainFormat;
+
+    //final pipeline createion
+    VkGraphicsPipelineCreateInfo pipelineInfo = {0};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.pNext = &renderingInfo; //denamic rendering via pNext
+    pipelineInfo.stageCount = 2;
+    pipelineInfo.pStages = shaderStages;
+    pipelineInfo.pVertexInputState = &vertexInput;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState = &multisampling;
+    pipelineInfo.pColorBlendState = &colorBlending;
+    pipelineInfo.pDynamicState = &dynamicState;
+    pipelineInfo.layout = ctx->pipelineLayout;
+
+    if (vkCreateGraphicsPipelines(ctx->logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &ctx->graphicsPipeline) != VK_SUCCESS)
+    {
+        printf("[VULKAN ERROR] Failed to create graphics pipeline\n");
+        return false;
+    }
+
+    //shaders baked into pipeline - modules no longer needed
+    vkDestroyShaderModule(ctx->logicalDevice, vertShader, NULL);
+    vkDestroyShaderModule(ctx->logicalDevice, fragShader, NULL);
+
+    printf("[VULKAN] Graphics pipeline created\n");
+    return true;
+}
+
 bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
 {
     if (VALIDATION_ENABLED && !checkValidationSupport())
@@ -477,13 +610,7 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
         return false;
 
     //temp shader test
-    VkShaderModule vertShader = loadShader(ctx->logicalDevice, "shaders/triangle.vert.spv");
-    VkShaderModule fragShader = loadShader(ctx->logicalDevice, "shaders/triangle.frag.spv");
-    //destroy immediately (for test)
-    vkDestroyShaderModule(ctx->logicalDevice, vertShader, NULL);
-    vkDestroyShaderModule(ctx->logicalDevice, fragShader, NULL);
-    //null handle 
-    if (vertShader == VK_NULL_HANDLE || fragShader == VK_NULL_HANDLE)
+    if (!createGraphicsPipeline(ctx))
         return false;
 
     return true;
@@ -499,6 +626,10 @@ void morphVulkanShutdown(MorphVulkanContext *ctx)
         if (destroyFn)
             destroyFn(ctx->instance, ctx->debugMessenger, NULL);
     }
+
+    //graphics pipline shutdown
+    vkDestroyPipeline(ctx->logicalDevice, ctx->graphicsPipeline, NULL);
+    vkDestroyPipelineLayout(ctx->logicalDevice, ctx->pipelineLayout, NULL);
 
     //image views shutdown
     for (u32 i = 0; i < ctx->swapchainImageCount; i++)
