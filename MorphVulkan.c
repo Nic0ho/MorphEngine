@@ -64,7 +64,45 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback
     return VK_FALSE; 
 }
 
-static bool  pickPhysicalDevice(MorphVulkanContext* ctx)
+static VkShaderModule loadShader(VkDevice device, const char* path)
+{
+    //open file in binary
+    FILE* f = fopen(path, "rb");
+    if (!f)
+    {
+        printf("[VULKAN ERROR] Cannot open shader: %s\n", path);
+        return VK_NULL_HANDLE;
+    }
+
+    // get file size
+    fseek(f, 0, SEEK_END);
+    usize size = (usize)ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    //read bytes
+    u32* code = malloc(size);
+    fread(code, 1, size, f);
+    fclose(f);
+
+    VkShaderModuleCreateInfo info = {0};
+    info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    info.codeSize = size;
+    info.pCode = code;
+
+    VkShaderModule module;
+    if (vkCreateShaderModule(device, &info, NULL, &module) != VK_SUCCESS)
+    {
+        printf("[VULKAN ERROR] Failed to create shader module: %s\n", path);
+        free(code);
+        return VK_NULL_HANDLE;
+    }
+
+    free(code);
+    printf("[VULKAN] Shader loaded: %s\n", path);
+    return module;
+}
+
+static bool pickPhysicalDevice(MorphVulkanContext* ctx)
 {
     // checking for amount of GPU`s
     u32 deviceCount = 0;
@@ -301,6 +339,42 @@ static bool createLogicalDevice(MorphVulkanContext* ctx)
     return true;
 }
 
+static bool createImageViews(MorphVulkanContext* ctx)
+{
+    ctx->swapchainImageViews = malloc(ctx->swapchainImageCount * sizeof(VkImageView));
+
+    for (u32 i = 0; i < ctx->swapchainImageCount; i++)
+    {
+        VkImageViewCreateInfo viewInfo = {0};
+        viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        viewInfo.image = ctx->swapchainImages[i];
+        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        viewInfo.format = ctx->swapchainFormat;
+
+        //swizzle = which color channel maps to which. IDENTITY means R->R, G->G, B->B, A->A (no remapping)
+        viewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        viewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        viewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        viewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+        //subresourceRange = which part of the image this view covers
+        viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; //color image, not depth
+        viewInfo.subresourceRange.baseMipLevel = 0; //start at mip level 0
+        viewInfo.subresourceRange.levelCount = 1; //only one mip level (no mipmaps)
+        viewInfo.subresourceRange.baseArrayLayer = 0; //start at layer 0
+        viewInfo.subresourceRange.layerCount = 1; //only one layer (not cubemap or array)
+
+        if (vkCreateImageView(ctx->logicalDevice, &viewInfo, NULL, &ctx->swapchainImageViews[i]) != VK_SUCCESS)
+        {
+            printf("[VULKAN ERROR] Failed to create image view %u\n", i);
+            return false;
+        }
+    }
+
+    printf("[VULKAN] Image views created (%u)\n", ctx->swapchainImageCount);
+    return true;
+}
+
 bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
 {
     if (VALIDATION_ENABLED && !checkValidationSupport())
@@ -398,6 +472,20 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
     if (!createSwapchain(ctx, window))
         return false;
 
+    //image views
+    if (!createImageViews(ctx))
+        return false;
+
+    //temp shader test
+    VkShaderModule vertShader = loadShader(ctx->logicalDevice, "shaders/triangle.vert.spv");
+    VkShaderModule fragShader = loadShader(ctx->logicalDevice, "shaders/triangle.frag.spv");
+    //destroy immediately (for test)
+    vkDestroyShaderModule(ctx->logicalDevice, vertShader, NULL);
+    vkDestroyShaderModule(ctx->logicalDevice, fragShader, NULL);
+    //null handle 
+    if (vertShader == VK_NULL_HANDLE || fragShader == VK_NULL_HANDLE)
+        return false;
+
     return true;
 }
 
@@ -411,6 +499,11 @@ void morphVulkanShutdown(MorphVulkanContext *ctx)
         if (destroyFn)
             destroyFn(ctx->instance, ctx->debugMessenger, NULL);
     }
+
+    //image views shutdown
+    for (u32 i = 0; i < ctx->swapchainImageCount; i++)
+        vkDestroyImageView(ctx->logicalDevice, ctx->swapchainImageViews[i], NULL);
+    free(ctx->swapchainImageViews);
 
      // swapchain shutdown
     free(ctx->swapchainImages);

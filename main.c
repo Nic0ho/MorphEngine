@@ -20,7 +20,7 @@ int main(void)
 
     //window creation
     //                   win create func |   res  |    win name  |     ?      |
-    GLFWwindow* window = glfwCreateWindow(800, 600, "MorphEngine", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(1920, 1080, "MorphEngine", NULL, NULL);
     if (!window)
     {
         printf("Window creation fail\n");
