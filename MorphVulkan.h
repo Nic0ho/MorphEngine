@@ -4,6 +4,8 @@
 #include "vulkan/vulkan.h"
 #include <GLFW/glfw3.h>
 
+#define MAX_FRAMES_IN_FLIGHT 2
+
 typedef struct
 {
     VkInstance               instance;
@@ -21,6 +23,9 @@ typedef struct
     VkImageView*             swapchainImageViews;
     VkPipelineLayout         pipelineLayout;
     VkPipeline               graphicsPipeline;
+    VkCommandPool            commandPool;
+    VkCommandBuffer          commandBuffers[MAX_FRAMES_IN_FLIGHT];
+    
 } MorphVulkanContext;
 
 bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window);

@@ -508,6 +508,40 @@ static bool createGraphicsPipeline(MorphVulkanContext* ctx)
     return true;
 }
 
+static bool createCommandPool(MorphVulkanContext* ctx)
+{
+    VkCommandPoolCreateInfo poolInfo = {0};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.queueFamilyIndex = ctx->graphicsFamily;
+
+    //RESET_COMMAN_BUFFER_BIT = allow individual vommad buffers to be re-recorder. without this flag needs to reset the entire pool to re-record any buffer
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+    if (vkCreateCommandPool(ctx->logicalDevice, &poolInfo, NULL, &ctx->commandPool) != VK_SUCCESS)
+    {
+        printf("[VULKAN ERROR] Failed to create command pool!\n");
+        return false;
+    }
+
+    //allocate command buffers from the pool
+    VkCommandBufferAllocateInfo allocInfo = {0};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = ctx->commandPool;
+    //PRIMARY = can be sub,itted to queue directly
+    //SECONDATY = can only be called from primarty buffers
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = MAX_FRAMES_IN_FLIGHT;
+
+    if (vkAllocateCommandBuffers(ctx->logicalDevice, &allocInfo, ctx->commandBuffers) != VK_SUCCESS)
+    {
+        printf("[VULKAN ERROR] Failed to allocate command buffers!\n");
+        return false;
+    }
+
+    printf("[VULKAN] Command pool and buffers created\n");
+    return true;
+}
+
 bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
 {
     if (VALIDATION_ENABLED && !checkValidationSupport())
@@ -609,8 +643,12 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
     if (!createImageViews(ctx))
         return false;
 
-    //temp shader test
+    //graphics pipeline
     if (!createGraphicsPipeline(ctx))
+        return false;
+
+    //command pool
+    if (!createCommandPool(ctx))
         return false;
 
     return true;
@@ -627,6 +665,9 @@ void morphVulkanShutdown(MorphVulkanContext *ctx)
             destroyFn(ctx->instance, ctx->debugMessenger, NULL);
     }
 
+    //command pool shutdown
+    vkDestroyCommandPool(ctx->logicalDevice, ctx->commandPool, NULL);
+    
     //graphics pipline shutdown
     vkDestroyPipeline(ctx->logicalDevice, ctx->graphicsPipeline, NULL);
     vkDestroyPipelineLayout(ctx->logicalDevice, ctx->pipelineLayout, NULL);
