@@ -42,6 +42,7 @@ int main(void)
     while(!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
+        morphVulkanDraw(&vk);
     }
 
     //shutdown

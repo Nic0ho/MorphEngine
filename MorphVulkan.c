@@ -102,6 +102,188 @@ static VkShaderModule loadShader(VkDevice device, const char* path)
     return module;
 }
 
+static bool createSyncObjects(MorphVulkanContext* ctx)
+{
+    //one imageAvailable semaphore per swapchai image
+    ctx->imageAvailableSemaphores = malloc(ctx->swapchainImageCount * sizeof(VkSemaphore));
+    ctx->renderFinishedSemaphores = malloc(ctx->swapchainImageCount * sizeof(VkSemaphore));
+
+    VkSemaphoreCreateInfo semInfo = {0};
+    semInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkFenceCreateInfo fenceInfo = {0};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    //SIGNALED = frence starts signaled so first frame doesnt`t wait forever
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    for (u32 i = 0; i < ctx->swapchainImageCount; i++)
+    {
+        if (vkCreateSemaphore(ctx->logicalDevice, &semInfo, NULL, &ctx->imageAvailableSemaphores[i]) != VK_SUCCESS ||
+            vkCreateSemaphore(ctx->logicalDevice, &semInfo, NULL, &ctx->renderFinishedSemaphores[i]) != VK_SUCCESS)
+        {
+            printf("[VULKAN ERROR] Failed to create semaphores for image %u !\n", i);
+            return false;
+        }
+    }
+
+    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        if (vkCreateFence(ctx->logicalDevice, &fenceInfo, NULL, &ctx->inFlightFences[i]) != VK_SUCCESS)
+        {
+            printf("[VULKAN ERROR] Failed to create fence for frame %u !\n", i);
+            return false;
+        }
+    }
+
+    printf("[VULKAN] Sync objects created\n");
+    return true;
+}
+
+static void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout oldLayout, VkImageLayout newLayout)
+{
+    VkImageMemoryBarrier2 barrier = {0};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+    barrier.image = image;
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+
+    barrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    barrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
+    barrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    barrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT;
+
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+    VkDependencyInfo depInfo = {0};
+    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    depInfo.imageMemoryBarrierCount = 1;
+    depInfo.pImageMemoryBarriers = &barrier;
+
+    vkCmdPipelineBarrier2(cmd, &depInfo);
+}
+
+static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex)
+{
+    VkCommandBuffer cmd = ctx->commandBuffers[ctx->currentFrame];
+
+    VkCommandBufferBeginInfo beginInfo = {0};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(cmd, &beginInfo);
+
+    //transition: UNDEFINED -> COLOR_ATTACHMENT (ready to render into)
+    transitionImage(cmd, ctx->swapchainImages[imageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    //begin dynamic rendering
+    VkClearValue clearColor = {{{ 0.0f, 0.0f, 0.0f, 1.0f}}}; //black
+
+    VkRenderingAttachmentInfo colorAttachment = {0};
+    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    colorAttachment.imageView = ctx->swapchainImageViews[imageIndex];
+    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; //clear on start
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; //keep after rendering
+    colorAttachment.clearValue = clearColor;
+
+    VkRenderingInfo renderingInfo = {0};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderingInfo.renderArea.offset = (VkOffset2D){0, 0};
+    renderingInfo.renderArea.extent = ctx->swapchainExtent;
+    renderingInfo.layerCount = 1;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachments = &colorAttachment;
+
+    vkCmdBeginRendering(cmd, &renderingInfo);
+
+    //bind pipeline
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->graphicsPipeline);
+
+    //set dynamic viewport
+    VkViewport viewport = {0};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = (f32)ctx->swapchainExtent.width;
+    viewport.height = (f32)ctx->swapchainExtent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    //set dynamic scissor
+    VkRect2D scissor = {0};
+    scissor.offset = (VkOffset2D){0, 0};
+    scissor.extent = ctx->swapchainExtent;
+    
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    //draw 3 verices, 1 instacne, startit at vertex 0
+    vkCmdDraw(cmd, 3, 1, 0, 0);
+    vkCmdEndRendering(cmd);
+
+    //transition: COLOR_ATTACHMENT -> PRESENT_SRC (ready to show om screen)
+    transitionImage(cmd, ctx->swapchainImages[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+    vkEndCommandBuffer(cmd);
+}
+
+void morphVulkanDraw(MorphVulkanContext* ctx)
+{
+    //wait untill this frame slot is free (GPU finished with it)
+    vkWaitForFences(ctx->logicalDevice, 1, &ctx->inFlightFences[ctx->currentFrame], VK_TRUE, UINT64_MAX);
+
+    u32 semIdx = ctx->acquireIndex;
+
+    //get next swapchain image
+    u32 imageIndex;
+    VkResult result = vkAcquireNextImageKHR(ctx->logicalDevice, ctx->swapchain, UINT64_MAX, ctx->imageAvailableSemaphores[semIdx], VK_NULL_HANDLE, &imageIndex);
+    if (result != VK_SUCCESS)
+    {
+        printf("[VULKAN ERROR] Failed to acquire swapchain image!\n");
+        return;
+    }
+
+    //reset fence only after we know we`re going to submit
+    vkResetFences(ctx->logicalDevice, 1, &ctx->inFlightFences[ctx->currentFrame]);
+
+    //record commands
+    vkResetCommandBuffer(ctx->commandBuffers[ctx->currentFrame], 0);
+    recordCommandBuffer(ctx, imageIndex);
+
+    //submit
+    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+    VkSubmitInfo submitInfo = {0};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = &ctx->imageAvailableSemaphores[semIdx];
+    submitInfo.pWaitDstStageMask = &waitStage;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &ctx->commandBuffers[ctx->currentFrame];
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &ctx->renderFinishedSemaphores[imageIndex];
+
+    vkQueueSubmit(ctx->graphicsQueue, 1, &submitInfo, ctx->inFlightFences[ctx->currentFrame]);
+
+    //present
+    VkPresentInfoKHR presentInfo = {0};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = &ctx->renderFinishedSemaphores[imageIndex];
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = &ctx->swapchain;
+    presentInfo.pImageIndices = &imageIndex;
+
+    vkQueuePresentKHR(ctx->graphicsQueue, &presentInfo);
+
+    //advance to next frame slot
+    ctx->acquireIndex = (ctx->acquireIndex + 1) % ctx->swapchainImageCount;
+    ctx->currentFrame = (ctx->currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
 static bool pickPhysicalDevice(MorphVulkanContext* ctx)
 {
     // checking for amount of GPU`s
@@ -306,6 +488,7 @@ static bool createLogicalDevice(MorphVulkanContext* ctx)
     VkPhysicalDeviceVulkan13Features features13 = {0};
     features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
     features13.dynamicRendering = VK_TRUE;
+    features13.synchronization2 = VK_TRUE;
 
     VkPhysicalDeviceVulkan14Features features14 = {0};
     features14.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES;
@@ -651,11 +834,17 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
     if (!createCommandPool(ctx))
         return false;
 
+    //createSyncObjects
+    if (!createSyncObjects(ctx))
+        return false;
+
     return true;
 }
 
 void morphVulkanShutdown(MorphVulkanContext *ctx)
 {
+    vkDeviceWaitIdle(ctx->logicalDevice); //wait for GPU to finish before destroy
+
     //debug messenger shutdown
     if (VALIDATION_ENABLED && ctx->debugMessenger != VK_NULL_HANDLE)
     {
@@ -664,6 +853,18 @@ void morphVulkanShutdown(MorphVulkanContext *ctx)
         if (destroyFn)
             destroyFn(ctx->instance, ctx->debugMessenger, NULL);
     }
+
+    //sync objects shutdown
+    for (u32 i = 0; i < ctx->swapchainImageCount; i++)
+    {
+        vkDestroySemaphore(ctx->logicalDevice, ctx->imageAvailableSemaphores[i], NULL);
+        vkDestroySemaphore(ctx->logicalDevice, ctx->renderFinishedSemaphores[i], NULL);
+    }
+    free(ctx->imageAvailableSemaphores);
+    free(ctx->renderFinishedSemaphores);
+
+    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        vkDestroyFence(ctx->logicalDevice, ctx->inFlightFences[i], NULL);
 
     //command pool shutdown
     vkDestroyCommandPool(ctx->logicalDevice, ctx->commandPool, NULL);

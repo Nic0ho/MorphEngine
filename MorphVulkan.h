@@ -25,8 +25,13 @@ typedef struct
     VkPipeline               graphicsPipeline;
     VkCommandPool            commandPool;
     VkCommandBuffer          commandBuffers[MAX_FRAMES_IN_FLIGHT];
-    
+    VkSemaphore*             imageAvailableSemaphores;
+    VkSemaphore*              renderFinishedSemaphores;
+    VkFence                  inFlightFences[MAX_FRAMES_IN_FLIGHT];
+    u32                      currentFrame;
+    u32                      acquireIndex;
 } MorphVulkanContext;
 
 bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window);
 void morphVulkanShutdown(MorphVulkanContext* ctx);
+void morphVulkanDraw(MorphVulkanContext* ctx);
