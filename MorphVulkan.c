@@ -1,10 +1,26 @@
 #include "MorphVulkan.h"
+
+#include "MorphBuffer.h"
 #include <GLFW/glfw3.h>
 
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stddef.h>
+
+typedef struct
+{
+    f32 pos[2];
+    f32 color[3];
+} Vertex;
+
+static const Vertex VERTICES[] =
+{
+    {{ 0.0f, -0.2}, {1.0f, 1.0f, 1.0f}},
+    {{0.0f, 0.5f}, {1.0f, 1.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+};
 
 //Vulkan validation layers
 static const char* VALIDATION_LAYERS[] = { "VK_LAYER_KHRONOS_validation" };
@@ -220,6 +236,11 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex)
     
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
+    //bind vertex buffer
+    VkBuffer vertexBuffers[] = {ctx->vertexBuffer.buffer};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers, offsets);
+
     //draw 3 verices, 1 instacne, startit at vertex 0
     vkCmdDraw(cmd, 3, 1, 0, 0);
     vkCmdEndRendering(cmd);
@@ -228,60 +249,6 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex)
     transitionImage(cmd, ctx->swapchainImages[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     vkEndCommandBuffer(cmd);
-}
-
-void morphVulkanDraw(MorphVulkanContext* ctx)
-{
-    //wait untill this frame slot is free (GPU finished with it)
-    vkWaitForFences(ctx->logicalDevice, 1, &ctx->inFlightFences[ctx->currentFrame], VK_TRUE, UINT64_MAX);
-
-    u32 semIdx = ctx->acquireIndex;
-
-    //get next swapchain image
-    u32 imageIndex;
-    VkResult result = vkAcquireNextImageKHR(ctx->logicalDevice, ctx->swapchain, UINT64_MAX, ctx->imageAvailableSemaphores[semIdx], VK_NULL_HANDLE, &imageIndex);
-    if (result != VK_SUCCESS)
-    {
-        printf("[VULKAN ERROR] Failed to acquire swapchain image!\n");
-        return;
-    }
-
-    //reset fence only after we know we`re going to submit
-    vkResetFences(ctx->logicalDevice, 1, &ctx->inFlightFences[ctx->currentFrame]);
-
-    //record commands
-    vkResetCommandBuffer(ctx->commandBuffers[ctx->currentFrame], 0);
-    recordCommandBuffer(ctx, imageIndex);
-
-    //submit
-    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-    VkSubmitInfo submitInfo = {0};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = &ctx->imageAvailableSemaphores[semIdx];
-    submitInfo.pWaitDstStageMask = &waitStage;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &ctx->commandBuffers[ctx->currentFrame];
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = &ctx->renderFinishedSemaphores[imageIndex];
-
-    vkQueueSubmit(ctx->graphicsQueue, 1, &submitInfo, ctx->inFlightFences[ctx->currentFrame]);
-
-    //present
-    VkPresentInfoKHR presentInfo = {0};
-    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = &ctx->renderFinishedSemaphores[imageIndex];
-    presentInfo.swapchainCount = 1;
-    presentInfo.pSwapchains = &ctx->swapchain;
-    presentInfo.pImageIndices = &imageIndex;
-
-    vkQueuePresentKHR(ctx->graphicsQueue, &presentInfo);
-
-    //advance to next frame slot
-    ctx->acquireIndex = (ctx->acquireIndex + 1) % ctx->swapchainImageCount;
-    ctx->currentFrame = (ctx->currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 static bool pickPhysicalDevice(MorphVulkanContext* ctx)
@@ -558,6 +525,36 @@ static bool createImageViews(MorphVulkanContext* ctx)
     return true;
 }
 
+static bool createVertexBuffer(MorphVulkanContext* ctx)
+{
+    VkDeviceSize size = sizeof(VERTICES);
+
+    //staging buffer - CPU write here
+    MorphBuffer staging;
+    if (!morphBufferCreate(ctx->logicalDevice, ctx->physicalDevice, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &staging))
+        return false;
+
+    //copy vertex data into staging buffer
+    void* data;
+    vkMapMemory(ctx->logicalDevice, staging.memory, 0, size, 0, &data);
+    memcpy(data, VERTICES, (usize)size);
+    vkUnmapMemory(ctx->logicalDevice, staging.memory);
+
+    //vertex buffer - GPU reads from gere (DEVICE_LOCAL = fasttest)
+    if (!morphBufferCreate(ctx->logicalDevice, ctx->physicalDevice, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &ctx->vertexBuffer))
+        return false;
+
+    //copy staging -> vertex buffer
+    morphBufferCopy(ctx->logicalDevice, ctx->commandPool, ctx->graphicsQueue, &staging, &ctx->vertexBuffer, size);
+
+    //staging no longer needed
+    morphBufferDestroy(ctx->logicalDevice, &staging);
+
+    printf("[VULKAN] Vertex buffer created\n");
+    
+    return true;
+}
+
 static bool createGraphicsPipeline(MorphVulkanContext* ctx)
 {
     //load shaders
@@ -572,22 +569,40 @@ static bool createGraphicsPipeline(MorphVulkanContext* ctx)
 
     //shader stage descriptors - tells pipeline whuch shader goes to which stage
     VkPipelineShaderStageCreateInfo shaderStages[2] = {0};
-
     //vert shader
     shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
     shaderStages[0].module = vertShader;
     shaderStages[0].pName = "main"; //entry point function name in the shader
-
     //frag shader
     shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     shaderStages[1].module = fragShader;
     shaderStages[1].pName = "main"; //entry point funtion name in the shader
 
-    //vertex input - empty, because harcoded in vertex shader
+    //vertex input - describe the vertex buffer layout
+    VkVertexInputBindingDescription binding = {0};
+    binding.binding = 0;
+    binding.stride = sizeof(Vertex);
+    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    VkVertexInputAttributeDescription attrs[2] = {0};
+    attrs[0].binding = 0;
+    attrs[0].location = 0;
+    attrs[0].format = VK_FORMAT_R32G32_SFLOAT;
+    attrs[0].offset = offsetof(Vertex, pos);
+
+    attrs[1].binding = 0;
+    attrs[1].location = 1;
+    attrs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attrs[1].offset = offsetof(Vertex, color);
+
     VkPipelineVertexInputStateCreateInfo vertexInput = {0};
     vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInput.vertexBindingDescriptionCount = 1;
+    vertexInput.pVertexBindingDescriptions = &binding;
+    vertexInput.vertexAttributeDescriptionCount = 2;
+    vertexInput.pVertexAttributeDescriptions = attrs;
 
     //input assembly - how to interpret vertices
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {0};
@@ -725,6 +740,100 @@ static bool createCommandPool(MorphVulkanContext* ctx)
     return true;
 }
 
+static void cleanupSwapchain(MorphVulkanContext* ctx)
+{
+    for (u32 i = 0; i < ctx->swapchainImageCount; i++)
+        vkDestroyImageView(ctx->logicalDevice, ctx->swapchainImageViews[i], NULL);
+    free(ctx->swapchainImageViews);
+
+    free(ctx->swapchainImages);
+    vkDestroySwapchainKHR(ctx->logicalDevice, ctx->swapchain, NULL);
+}
+
+static bool recreateSwapchain(MorphVulkanContext* ctx, GLFWwindow* window)
+{
+    //handle minimized - block until window has a valid size again
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(window, &width, &height);
+    while (width == 0 || height == 0)
+    {
+        glfwGetFramebufferSize(window, &width, &height);
+        glfwWaitEvents();
+    }
+
+    vkDeviceWaitIdle(ctx->logicalDevice); // GPU must finish before destroying what its using
+    
+    cleanupSwapchain(ctx);
+
+    if (!createSwapchain(ctx, window) ||
+        !createImageViews(ctx))
+        return false;
+
+    printf("[VULKAN] Swapchain recreated (%ux%u)\n", ctx->swapchainExtent.width, ctx->swapchainExtent.height);
+    
+    return true;
+}
+
+void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window)
+{
+    //wait untill this frame slot is free (GPU finished with it)
+    vkWaitForFences(ctx->logicalDevice, 1, &ctx->inFlightFences[ctx->currentFrame], VK_TRUE, UINT64_MAX);
+
+    u32 semIdx = ctx->acquireIndex;
+
+    //get next swapchain image
+    u32 imageIndex;
+    VkResult result = vkAcquireNextImageKHR(ctx->logicalDevice, ctx->swapchain, UINT64_MAX, ctx->imageAvailableSemaphores[semIdx], VK_NULL_HANDLE, &imageIndex);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        if (!recreateSwapchain(ctx, window))
+            printf("[VULKAN ERROR] Failed to recreate swapchain!\n");
+        return;
+    }
+    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+    {
+        printf("[VULKAN ERROR] Failed to acquire swapchain image!\n");
+        return;
+    }
+
+    //reset fence only after we know we`re going to submit
+    vkResetFences(ctx->logicalDevice, 1, &ctx->inFlightFences[ctx->currentFrame]);
+
+    //record commands
+    vkResetCommandBuffer(ctx->commandBuffers[ctx->currentFrame], 0);
+    recordCommandBuffer(ctx, imageIndex);
+
+    //submit
+    VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+    VkSubmitInfo submitInfo = {0};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = &ctx->imageAvailableSemaphores[semIdx];
+    submitInfo.pWaitDstStageMask = &waitStage;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &ctx->commandBuffers[ctx->currentFrame];
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = &ctx->renderFinishedSemaphores[imageIndex];
+
+    vkQueueSubmit(ctx->graphicsQueue, 1, &submitInfo, ctx->inFlightFences[ctx->currentFrame]);
+
+    //present
+    VkPresentInfoKHR presentInfo = {0};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = &ctx->renderFinishedSemaphores[imageIndex];
+    presentInfo.swapchainCount = 1;
+    presentInfo.pSwapchains = &ctx->swapchain;
+    presentInfo.pImageIndices = &imageIndex;
+
+    vkQueuePresentKHR(ctx->graphicsQueue, &presentInfo);
+
+    //advance to next frame slot
+    ctx->acquireIndex = (ctx->acquireIndex + 1) % ctx->swapchainImageCount;
+    ctx->currentFrame = (ctx->currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
 bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
 {
     if (VALIDATION_ENABLED && !checkValidationSupport())
@@ -810,32 +919,15 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
     }
     printf("[VULKAN] Window surface created\n");
 
-    //physical device
-    if (!pickPhysicalDevice(ctx))
-        return false;
-
-    //logical device
-    if (!createLogicalDevice(ctx))
-        return false;
-
-    //swapchain
-    if (!createSwapchain(ctx, window))
-        return false;
-
-    //image views
-    if (!createImageViews(ctx))
-        return false;
-
-    //graphics pipeline
-    if (!createGraphicsPipeline(ctx))
-        return false;
-
-    //command pool
-    if (!createCommandPool(ctx))
-        return false;
-
-    //createSyncObjects
-    if (!createSyncObjects(ctx))
+        
+    if (!pickPhysicalDevice(ctx)     || //physical device
+        !createLogicalDevice(ctx)    || //logical device
+        !createSwapchain(ctx, window)|| //swapchain
+        !createImageViews(ctx)       || //image views
+        !createGraphicsPipeline(ctx) || //graphics pipeline
+        !createCommandPool(ctx)      || //command pool
+        !createSyncObjects(ctx)      || //createSyncObjects
+        !createVertexBuffer(ctx))       //createVertexBuffer
         return false;
 
     return true;
@@ -865,6 +957,9 @@ void morphVulkanShutdown(MorphVulkanContext *ctx)
 
     for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
         vkDestroyFence(ctx->logicalDevice, ctx->inFlightFences[i], NULL);
+
+    //buffer destroy
+    morphBufferDestroy(ctx->logicalDevice, &ctx->vertexBuffer);
 
     //command pool shutdown
     vkDestroyCommandPool(ctx->logicalDevice, ctx->commandPool, NULL);

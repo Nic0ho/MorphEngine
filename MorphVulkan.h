@@ -2,6 +2,7 @@
 
 #include "MorphTypes.h"
 #include "vulkan/vulkan.h"
+#include "MorphBuffer.h"
 #include <GLFW/glfw3.h>
 
 #define MAX_FRAMES_IN_FLIGHT 2
@@ -26,12 +27,13 @@ typedef struct
     VkCommandPool            commandPool;
     VkCommandBuffer          commandBuffers[MAX_FRAMES_IN_FLIGHT];
     VkSemaphore*             imageAvailableSemaphores;
-    VkSemaphore*              renderFinishedSemaphores;
+    VkSemaphore*             renderFinishedSemaphores;
     VkFence                  inFlightFences[MAX_FRAMES_IN_FLIGHT];
     u32                      currentFrame;
     u32                      acquireIndex;
+    MorphBuffer              vertexBuffer;
 } MorphVulkanContext;
 
 bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window);
 void morphVulkanShutdown(MorphVulkanContext* ctx);
-void morphVulkanDraw(MorphVulkanContext* ctx);
+void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window);

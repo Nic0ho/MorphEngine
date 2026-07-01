@@ -1,6 +1,5 @@
 #include <stdio.h>
 
-#include "MorphTypes.h"
 #include "MorphVulkan.h"
 
 #include <GLFW/glfw3.h>
@@ -42,7 +41,7 @@ int main(void)
     while(!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
-        morphVulkanDraw(&vk);
+        morphVulkanDraw(&vk, window);
     }
 
     //shutdown
