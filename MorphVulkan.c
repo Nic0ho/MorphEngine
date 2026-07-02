@@ -1,6 +1,7 @@
 #include "MorphVulkan.h"
-
 #include "MorphBuffer.h"
+#include "MorphMath.h"
+
 #include <GLFW/glfw3.h>
 
 #include <stdint.h>
@@ -221,6 +222,25 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex)
     //bind pipeline
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->graphicsPipeline);
 
+    //push descriptor - send uniform buffer to shader without description pool
+    VkDescriptorBufferInfo bufferInfo = {0};
+    bufferInfo.buffer = ctx->uniformBuffers[ctx->currentFrame].buffer;
+    bufferInfo.offset = 0;
+    bufferInfo.range = sizeof(Mat4);
+
+    VkWriteDescriptorSet write = {0};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstBinding = 0;
+    write.descriptorCount = 1;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    write.pBufferInfo = &bufferInfo;
+
+    PFN_vkCmdPushDescriptorSetKHR pushDescriptors =
+        (PFN_vkCmdPushDescriptorSetKHR)
+        vkGetDeviceProcAddr(ctx->logicalDevice, "vkCmdPushDescriptorSetKHR");
+
+    pushDescriptors(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->pipelineLayout, 0, 1, &write);
+
     //set dynamic viewport
     VkViewport viewport = {0};
     viewport.x = 0.0f;
@@ -229,6 +249,7 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex)
     viewport.height = (f32)ctx->swapchainExtent.height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
+
     vkCmdSetViewport(cmd, 0, 1, &viewport);
 
     //set dynamic scissor
@@ -471,7 +492,8 @@ static bool createLogicalDevice(MorphVulkanContext* ctx)
     // needed device extensions
     const char* deviceExtensions[] =
     {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME //for presenting images to window
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME, //for presenting images to window
+        VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME
     };
 
     VkDeviceCreateInfo deviceInfo = {0};
@@ -479,7 +501,7 @@ static bool createLogicalDevice(MorphVulkanContext* ctx)
     deviceInfo.pNext = &features14;
     deviceInfo.queueCreateInfoCount = 1;
     deviceInfo.pQueueCreateInfos = &queueInfo;
-    deviceInfo.enabledExtensionCount = 1;
+    deviceInfo.enabledExtensionCount = 2;
     deviceInfo.ppEnabledExtensionNames = deviceExtensions;
 
     if (vkCreateDevice(ctx->physicalDevice, &deviceInfo, NULL, &ctx->logicalDevice) != VK_SUCCESS)
@@ -583,6 +605,51 @@ static bool createIndexBuffer(MorphVulkanContext* ctx)
     morphBufferDestroy(ctx->logicalDevice, &staging);
 
     printf("[VULKAN] Index buffer created (%u indices)\n", ctx->indexCount);
+    return true;
+}
+
+static bool createDescriptorSetLayout(MorphVulkanContext* ctx)
+{
+    //describes whats at binding 0, set 0 - a unioform buffer visible to vertex shader
+    VkDescriptorSetLayoutBinding binding = {0};
+    binding.binding = 0;
+    binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    binding.descriptorCount = 1;
+    binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    //PUSH_DESCRIPTOR flag - this layout will be used wiuth push descriptors
+    VkDescriptorSetLayoutCreateInfo layoutInfo = {0};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = &binding;
+
+    if (vkCreateDescriptorSetLayout(ctx->logicalDevice, &layoutInfo, NULL, &ctx->descriptorSetLayout) != VK_SUCCESS)
+    {
+        printf("[VULKAN ERROR] Failed to create descriptor set layout!\n");
+        return false;
+    }
+
+    printf("[VULKAN] Descriptor set layout created\n");
+    
+    return true;
+}
+
+static bool createUniformBuffer(MorphVulkanContext* ctx)
+{
+    VkDeviceSize size = sizeof(Mat4);
+
+    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        if (!morphBufferCreate(ctx->logicalDevice, ctx->physicalDevice, size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &ctx->uniformBuffers[i]))
+            return false;
+
+        //persistant mapping - keep mapped for the ligetime of the buffer. No staging needed: CPU wrtires everu frame, so HOST_VISIBLE is correct here
+        vkMapMemory(ctx->logicalDevice, ctx->uniformBuffers[i].memory, 0, size, 0, &ctx->uniformBuffersMapped[i]);
+    }
+
+    printf("[VULKAN] Uniform buffers created\n");
+
     return true;
 }
 
@@ -695,6 +762,8 @@ static bool createGraphicsPipeline(MorphVulkanContext* ctx)
     //pipeline layout - describes push counstannts and descriptor sets. Empty for now since triangle is harcoded
     VkPipelineLayoutCreateInfo layoutInfo = {0};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    layoutInfo.setLayoutCount = 1;
+    layoutInfo.pSetLayouts = &ctx->descriptorSetLayout;
 
     if (vkCreatePipelineLayout(ctx->logicalDevice, &layoutInfo, NULL, &ctx->pipelineLayout) != VK_SUCCESS)
     {
@@ -830,6 +899,13 @@ void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window)
     //reset fence only after we know we`re going to submit
     vkResetFences(ctx->logicalDevice, 1, &ctx->inFlightFences[ctx->currentFrame]);
 
+    //update transform for current frame - simple translation that changes over time
+    Mat4 transform = mat4Identity();
+    //move the trianle
+    transform = mat4Translate(-0.5f, 0.0f);
+
+    memcpy(ctx->uniformBuffersMapped[ctx->currentFrame], &transform, sizeof(Mat4));
+
     //record commands
     vkResetCommandBuffer(ctx->commandBuffers[ctx->currentFrame], 0);
     recordCommandBuffer(ctx, imageIndex);
@@ -951,15 +1027,17 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
     printf("[VULKAN] Window surface created\n");
 
         
-    if (!pickPhysicalDevice(ctx)     || //physical device
-        !createLogicalDevice(ctx)    || //logical device
-        !createSwapchain(ctx, window)|| //swapchain
-        !createImageViews(ctx)       || //image views
-        !createGraphicsPipeline(ctx) || //graphics pipeline
-        !createCommandPool(ctx)      || //command pool
-        !createSyncObjects(ctx)      || //createSyncObjects
-        !createVertexBuffer(ctx)     || //createVertexBuffer
-        !createIndexBuffer(ctx))        //createIndexBuffer
+    if (!pickPhysicalDevice(ctx)        || //physical device
+        !createLogicalDevice(ctx)       || //logical device
+        !createSwapchain(ctx, window)   || //swapchain
+        !createImageViews(ctx)          || //image views
+        !createDescriptorSetLayout(ctx) || //descriptor set layout
+        !createUniformBuffer(ctx)       || //uniform buffer
+        !createGraphicsPipeline(ctx)    || //graphics pipeline
+        !createCommandPool(ctx)         || //command pool
+        !createSyncObjects(ctx)         || //create sync objects
+        !createVertexBuffer(ctx)        || //create vertex buffer
+        !createIndexBuffer(ctx))           //create index buffer
         return false;
 
     return true;
@@ -1000,6 +1078,12 @@ void morphVulkanShutdown(MorphVulkanContext *ctx)
     //graphics pipline shutdown
     vkDestroyPipeline(ctx->logicalDevice, ctx->graphicsPipeline, NULL);
     vkDestroyPipelineLayout(ctx->logicalDevice, ctx->pipelineLayout, NULL);
+
+    //descriptor sets shutdown
+    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        morphBufferDestroy(ctx->logicalDevice, &ctx->uniformBuffers[i]);
+
+    vkDestroyDescriptorSetLayout(ctx->logicalDevice, ctx->descriptorSetLayout, NULL);
 
     //image views shutdown
     for (u32 i = 0; i < ctx->swapchainImageCount; i++)

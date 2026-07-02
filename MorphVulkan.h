@@ -2,7 +2,9 @@
 
 #include "MorphTypes.h"
 #include "vulkan/vulkan.h"
+#include "MorphMath.h"
 #include "MorphBuffer.h"
+
 #include <GLFW/glfw3.h>
 
 #define MAX_FRAMES_IN_FLIGHT 2
@@ -34,6 +36,9 @@ typedef struct
     MorphBuffer              vertexBuffer;
     MorphBuffer              indexBuffer;
     u32                      indexCount;
+    VkDescriptorSetLayout    descriptorSetLayout;
+    MorphBuffer              uniformBuffers[MAX_FRAMES_IN_FLIGHT];
+    void*                    uniformBuffersMapped[MAX_FRAMES_IN_FLIGHT]; //persistent mapping
 } MorphVulkanContext;
 
 bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window);
