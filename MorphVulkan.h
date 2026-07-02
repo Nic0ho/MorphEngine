@@ -32,6 +32,8 @@ typedef struct
     u32                      currentFrame;
     u32                      acquireIndex;
     MorphBuffer              vertexBuffer;
+    MorphBuffer              indexBuffer;
+    u32                      indexCount;
 } MorphVulkanContext;
 
 bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window);

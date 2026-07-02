@@ -17,10 +17,12 @@ typedef struct
 
 static const Vertex VERTICES[] =
 {
-    {{ 0.0f, -0.2}, {1.0f, 1.0f, 1.0f}},
-    {{0.0f, 0.5f}, {1.0f, 1.0f, 1.0f}},
-    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+    {{ 0.0f, -0.2}, {0.7f, 0.2f, 0.3f}},
+    {{0.0f,  0.5f}, {0.1f, 0.3f, 0.7f}},
+    {{-0.5f, 0.5f}, {0.9f, 0.7f, 0.5f}}
 };
+
+static const u16 INDICES[] = { 0, 1, 2 };
 
 //Vulkan validation layers
 static const char* VALIDATION_LAYERS[] = { "VK_LAYER_KHRONOS_validation" };
@@ -196,7 +198,7 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex)
     transitionImage(cmd, ctx->swapchainImages[imageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     //begin dynamic rendering
-    VkClearValue clearColor = {{{ 0.0f, 0.0f, 0.0f, 1.0f}}}; //black
+    VkClearValue clearColor = {{{ 0.1f, 0.1f, 0.15f, 1.0f}}}; //black
 
     VkRenderingAttachmentInfo colorAttachment = {0};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -241,8 +243,12 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex)
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers, offsets);
 
+    //bind index buffer
+    vkCmdBindIndexBuffer(cmd, ctx->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT16);
+
+
     //draw 3 verices, 1 instacne, startit at vertex 0
-    vkCmdDraw(cmd, 3, 1, 0, 0);
+    vkCmdDrawIndexed(cmd, ctx->indexCount, 1, 0, 0, 0);
     vkCmdEndRendering(cmd);
 
     //transition: COLOR_ATTACHMENT -> PRESENT_SRC (ready to show om screen)
@@ -552,6 +558,31 @@ static bool createVertexBuffer(MorphVulkanContext* ctx)
 
     printf("[VULKAN] Vertex buffer created\n");
     
+    return true;
+}
+
+static bool createIndexBuffer(MorphVulkanContext* ctx)
+{
+    ctx->indexCount = LEN(INDICES);
+    VkDeviceSize size = sizeof(INDICES);
+
+    MorphBuffer staging;
+    if (!morphBufferCreate(ctx->logicalDevice, ctx->physicalDevice, size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &staging))
+        return false;
+
+    void* data;
+    vkMapMemory(ctx->logicalDevice, staging.memory, 0, size, 0, &data);
+    memcpy(data, INDICES, (usize)size);
+    vkUnmapMemory(ctx->logicalDevice, staging.memory);
+
+    if (!morphBufferCreate(ctx->logicalDevice, ctx->physicalDevice, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &ctx->indexBuffer))
+        return false;
+
+    morphBufferCopy(ctx->logicalDevice, ctx->commandPool, ctx->graphicsQueue, &staging, &ctx->indexBuffer, size);
+
+    morphBufferDestroy(ctx->logicalDevice, &staging);
+
+    printf("[VULKAN] Index buffer created (%u indices)\n", ctx->indexCount);
     return true;
 }
 
@@ -927,7 +958,8 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
         !createGraphicsPipeline(ctx) || //graphics pipeline
         !createCommandPool(ctx)      || //command pool
         !createSyncObjects(ctx)      || //createSyncObjects
-        !createVertexBuffer(ctx))       //createVertexBuffer
+        !createVertexBuffer(ctx)     || //createVertexBuffer
+        !createIndexBuffer(ctx))        //createIndexBuffer
         return false;
 
     return true;
@@ -959,6 +991,7 @@ void morphVulkanShutdown(MorphVulkanContext *ctx)
         vkDestroyFence(ctx->logicalDevice, ctx->inFlightFences[i], NULL);
 
     //buffer destroy
+    morphBufferDestroy(ctx->logicalDevice, &ctx->indexBuffer);
     morphBufferDestroy(ctx->logicalDevice, &ctx->vertexBuffer);
 
     //command pool shutdown
