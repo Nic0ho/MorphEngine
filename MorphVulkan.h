@@ -11,34 +11,34 @@
 
 typedef struct
 {
-    VkInstance               instance;
-    VkDebugUtilsMessengerEXT debugMessenger;
-    VkPhysicalDevice         physicalDevice;
-    u32                      graphicsFamily;
-    VkDevice                 logicalDevice;
-    VkQueue                  graphicsQueue;
-    VkSurfaceKHR             surface;
-    VkSwapchainKHR           swapchain;
-    VkFormat                 swapchainFormat;
-    VkExtent2D               swapchainExtent;
-    VkImage*                 swapchainImages;
-    u32                      swapchainImageCount;
-    VkImageView*             swapchainImageViews;
-    VkPipelineLayout         pipelineLayout;
-    VkPipeline               graphicsPipeline;
-    VkCommandPool            commandPool;
-    VkCommandBuffer          commandBuffers[MAX_FRAMES_IN_FLIGHT];
-    VkSemaphore*             imageAvailableSemaphores;
-    VkSemaphore*             renderFinishedSemaphores;
-    VkFence                  inFlightFences[MAX_FRAMES_IN_FLIGHT];
-    u32                      currentFrame;
-    u32                      acquireIndex;
-    MorphBuffer              vertexBuffer;
-    MorphBuffer              indexBuffer;
-    u32                      indexCount;
-    VkDescriptorSetLayout    descriptorSetLayout;
-    MorphBuffer              uniformBuffers[MAX_FRAMES_IN_FLIGHT];
-    void*                    uniformBuffersMapped[MAX_FRAMES_IN_FLIGHT]; //persistent mapping
+    VkInstance                    instance;
+    VkDebugUtilsMessengerEXT      debugMessenger;
+    VkPhysicalDevice              physicalDevice;
+    u32                           graphicsFamily;
+    VkDevice                      logicalDevice;
+    VkQueue                       graphicsQueue;
+    VkSurfaceKHR                  surface;
+    VkSwapchainKHR                swapchain;
+    VkFormat                      swapchainFormat;
+    VkExtent2D                    swapchainExtent;
+    VkImage*                      swapchainImages;
+    u32                           swapchainImageCount;
+    VkImageView*                  swapchainImageViews;
+    VkPipelineLayout              pipelineLayout;
+    VkPipeline                    graphicsPipeline;
+    VkCommandPool                 commandPool;
+    VkCommandBuffer               commandBuffers[MAX_FRAMES_IN_FLIGHT];
+    VkSemaphore*                  imageAvailableSemaphores;
+    VkSemaphore*                  renderFinishedSemaphores;
+    VkFence                       inFlightFences[MAX_FRAMES_IN_FLIGHT];
+    u32                           currentFrame;
+    u32                           acquireIndex;
+    MorphBuffer                   vertexBuffer;
+    MorphBuffer                   indexBuffer;
+    u32                           indexCount;
+    MorphTexture                  texture;
+    VkDescriptorSetLayout         descriptorSetLayout;
+    PFN_vkCmdPushDescriptorSetKHR fnPushDescriptors;
 } MorphVulkanContext;
 
 bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window);

@@ -14,13 +14,14 @@ typedef struct
 {
     f32 pos[2];
     f32 color[3];
+    f32 uv[2];
 } Vertex;
 
 static const Vertex VERTICES[] =
 {
-    {{ 0.0f, -0.2}, {0.7f, 0.2f, 0.3f}},
-    {{0.0f,  0.5f}, {0.1f, 0.3f, 0.7f}},
-    {{-0.5f, 0.5f}, {0.9f, 0.7f, 0.5f}}
+    {{ 0.0f, -0.2}, {0.7f, 0.2f, 0.3f}, {0.5f, 0.0f}},
+    {{0.0f,  0.5f}, {0.1f, 0.3f, 0.7f}, {1.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {0.9f, 0.7f, 0.5f}, {0.0f, 1.0f}}
 };
 
 static const u16 INDICES[] = { 0, 1, 2 };
@@ -222,24 +223,23 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex)
     //bind pipeline
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->graphicsPipeline);
 
-    //push descriptor - send uniform buffer to shader without description pool
-    VkDescriptorBufferInfo bufferInfo = {0};
-    bufferInfo.buffer = ctx->uniformBuffers[ctx->currentFrame].buffer;
-    bufferInfo.offset = 0;
-    bufferInfo.range = sizeof(Mat4);
+    //push transform directly into command buffer
+    Mat4 transform = mat4Translate(-0.5f, 0.0f); //transform
+    vkCmdPushConstants(cmd, ctx->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Mat4), &transform);
+
+    VkDescriptorImageInfo imageInfo = {0};
+    imageInfo.sampler = ctx->texture.sampler;
+    imageInfo.imageView = ctx->texture.view;
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkWriteDescriptorSet write = {0};
     write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write.dstBinding = 0;
     write.descriptorCount = 1;
-    write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    write.pBufferInfo = &bufferInfo;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write.pImageInfo = &imageInfo;
 
-    PFN_vkCmdPushDescriptorSetKHR pushDescriptors =
-        (PFN_vkCmdPushDescriptorSetKHR)
-        vkGetDeviceProcAddr(ctx->logicalDevice, "vkCmdPushDescriptorSetKHR");
-
-    pushDescriptors(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->pipelineLayout, 0, 1, &write);
+    ctx->fnPushDescriptors(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->pipelineLayout, 0, 1, &write);
 
     //set dynamic viewport
     VkViewport viewport = {0};
@@ -513,6 +513,8 @@ static bool createLogicalDevice(MorphVulkanContext* ctx)
     // get the queue handle (0 iundex means the first queue in this family)
     vkGetDeviceQueue(ctx->logicalDevice, ctx->graphicsFamily, 0, &ctx->graphicsQueue);
 
+    ctx->fnPushDescriptors = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(ctx->logicalDevice, "vkCmdPushDescriptorSetKHR");
+
     printf("[VULKAN] Logical device created\n");
     return true;
 }
@@ -610,14 +612,12 @@ static bool createIndexBuffer(MorphVulkanContext* ctx)
 
 static bool createDescriptorSetLayout(MorphVulkanContext* ctx)
 {
-    //describes whats at binding 0, set 0 - a unioform buffer visible to vertex shader
     VkDescriptorSetLayoutBinding binding = {0};
     binding.binding = 0;
-    binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     binding.descriptorCount = 1;
-    binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    //PUSH_DESCRIPTOR flag - this layout will be used wiuth push descriptors
     VkDescriptorSetLayoutCreateInfo layoutInfo = {0};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT;
@@ -632,24 +632,6 @@ static bool createDescriptorSetLayout(MorphVulkanContext* ctx)
 
     printf("[VULKAN] Descriptor set layout created\n");
     
-    return true;
-}
-
-static bool createUniformBuffer(MorphVulkanContext* ctx)
-{
-    VkDeviceSize size = sizeof(Mat4);
-
-    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        if (!morphBufferCreate(ctx->logicalDevice, ctx->physicalDevice, size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &ctx->uniformBuffers[i]))
-            return false;
-
-        //persistant mapping - keep mapped for the ligetime of the buffer. No staging needed: CPU wrtires everu frame, so HOST_VISIBLE is correct here
-        vkMapMemory(ctx->logicalDevice, ctx->uniformBuffers[i].memory, 0, size, 0, &ctx->uniformBuffersMapped[i]);
-    }
-
-    printf("[VULKAN] Uniform buffers created\n");
-
     return true;
 }
 
@@ -684,22 +666,28 @@ static bool createGraphicsPipeline(MorphVulkanContext* ctx)
     binding.stride = sizeof(Vertex);
     binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    VkVertexInputAttributeDescription attrs[2] = {0};
+    VkVertexInputAttributeDescription attrs[3] = {0};
+    //pos
     attrs[0].binding = 0;
     attrs[0].location = 0;
     attrs[0].format = VK_FORMAT_R32G32_SFLOAT;
     attrs[0].offset = offsetof(Vertex, pos);
-
+    //color
     attrs[1].binding = 0;
     attrs[1].location = 1;
     attrs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
     attrs[1].offset = offsetof(Vertex, color);
+    //uv
+    attrs[2].binding = 0;
+    attrs[2].location = 2;
+    attrs[2].format = VK_FORMAT_R32G32_SFLOAT;
+    attrs[2].offset = offsetof(Vertex, uv);
 
     VkPipelineVertexInputStateCreateInfo vertexInput = {0};
     vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInput.vertexBindingDescriptionCount = 1;
     vertexInput.pVertexBindingDescriptions = &binding;
-    vertexInput.vertexAttributeDescriptionCount = 2;
+    vertexInput.vertexAttributeDescriptionCount = 3;
     vertexInput.pVertexAttributeDescriptions = attrs;
 
     //input assembly - how to interpret vertices
@@ -759,11 +747,18 @@ static bool createGraphicsPipeline(MorphVulkanContext* ctx)
     dynamicState.dynamicStateCount = 2;
     dynamicState.pDynamicStates = dynamicStates;
 
+    VkPushConstantRange pushRange = {0};
+    pushRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    pushRange.offset = 0;
+    pushRange.size = sizeof(Mat4);
+
     //pipeline layout - describes push counstannts and descriptor sets. Empty for now since triangle is harcoded
     VkPipelineLayoutCreateInfo layoutInfo = {0};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutInfo.setLayoutCount = 1;
     layoutInfo.pSetLayouts = &ctx->descriptorSetLayout;
+    layoutInfo.pushConstantRangeCount = 1;
+    layoutInfo.pPushConstantRanges = &pushRange;
 
     if (vkCreatePipelineLayout(ctx->logicalDevice, &layoutInfo, NULL, &ctx->pipelineLayout) != VK_SUCCESS)
     {
@@ -899,13 +894,6 @@ void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window)
     //reset fence only after we know we`re going to submit
     vkResetFences(ctx->logicalDevice, 1, &ctx->inFlightFences[ctx->currentFrame]);
 
-    //update transform for current frame - simple translation that changes over time
-    Mat4 transform = mat4Identity();
-    //move the trianle
-    transform = mat4Translate(-0.5f, 0.0f);
-
-    memcpy(ctx->uniformBuffersMapped[ctx->currentFrame], &transform, sizeof(Mat4));
-
     //record commands
     vkResetCommandBuffer(ctx->commandBuffers[ctx->currentFrame], 0);
     recordCommandBuffer(ctx, imageIndex);
@@ -1031,13 +1019,13 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
         !createLogicalDevice(ctx)       || //logical device
         !createSwapchain(ctx, window)   || //swapchain
         !createImageViews(ctx)          || //image views
-        !createDescriptorSetLayout(ctx) || //descriptor set layout
-        !createUniformBuffer(ctx)       || //uniform buffer
+        !createDescriptorSetLayout(ctx) || //descriptor set
         !createGraphicsPipeline(ctx)    || //graphics pipeline
         !createCommandPool(ctx)         || //command pool
         !createSyncObjects(ctx)         || //create sync objects
         !createVertexBuffer(ctx)        || //create vertex buffer
-        !createIndexBuffer(ctx))           //create index buffer
+        !createIndexBuffer(ctx)         ||  //create index buffer
+        !morphTextureLoad(ctx->logicalDevice, ctx->physicalDevice, ctx->commandPool, ctx->graphicsQueue, "assets/test.png", &ctx->texture))
         return false;
 
     return true;
@@ -1072,18 +1060,18 @@ void morphVulkanShutdown(MorphVulkanContext *ctx)
     morphBufferDestroy(ctx->logicalDevice, &ctx->indexBuffer);
     morphBufferDestroy(ctx->logicalDevice, &ctx->vertexBuffer);
 
-    //command pool shutdown
-    vkDestroyCommandPool(ctx->logicalDevice, ctx->commandPool, NULL);
+    //texture shutdown
+    morphTextureDestroy(ctx->logicalDevice, &ctx->texture);
     
     //graphics pipline shutdown
     vkDestroyPipeline(ctx->logicalDevice, ctx->graphicsPipeline, NULL);
     vkDestroyPipelineLayout(ctx->logicalDevice, ctx->pipelineLayout, NULL);
 
-    //descriptor sets shutdown
-    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-        morphBufferDestroy(ctx->logicalDevice, &ctx->uniformBuffers[i]);
-
+    //descriptor set shutdown
     vkDestroyDescriptorSetLayout(ctx->logicalDevice, ctx->descriptorSetLayout, NULL);
+
+    //command pool shutdown
+    vkDestroyCommandPool(ctx->logicalDevice, ctx->commandPool, NULL);
 
     //image views shutdown
     for (u32 i = 0; i < ctx->swapchainImageCount; i++)
