@@ -224,7 +224,7 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex)
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->graphicsPipeline);
 
     //push transform directly into command buffer
-    Mat4 transform = mat4Translate(-0.5f, 0.0f); //transform
+    Mat4 transform = mat4Translate(-0.5f, 0.0f, 0.0f); //transform
     vkCmdPushConstants(cmd, ctx->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Mat4), &transform);
 
     VkDescriptorImageInfo imageInfo = {0};
