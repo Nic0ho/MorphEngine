@@ -1,6 +1,7 @@
 #include "MorphVulkan.h"
 #include "MorphBuffer.h"
 #include "MorphMath.h"
+#include "MorphArena.h"
 
 #include <GLFW/glfw3.h>
 
@@ -38,10 +39,14 @@ static const u32 VALIDATION_LAYER_COUNT = 1;
 
 static bool checkValidationSupport(void)
 {
+    MorphArena arena;
     u32 count = 0;
     vkEnumerateInstanceLayerProperties(&count, NULL);
 
-    VkLayerProperties* available = malloc(count * sizeof(VkLayerProperties));
+    if (!morphArenaCreate(&arena, count * sizeof(VkLayerProperties)))
+    { return false; };
+
+    VkLayerProperties* available = (VkLayerProperties*)morphArenaAlloc(&arena, count * sizeof(VkLayerProperties), _Alignof(VkLayerProperties));
     vkEnumerateInstanceLayerProperties(&count, available);
 
     for (u32 i = 0; i < VALIDATION_LAYER_COUNT; i++)
@@ -57,11 +62,11 @@ static bool checkValidationSupport(void)
         }
         if (!found)
         {
-            free(available);
+            morphArenaDestroy(&arena);
             return false;
         }
     }
-    free(available);
+    morphArenaDestroy(&arena);
     return true;
 }
 
@@ -86,6 +91,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback
 
 static VkShaderModule loadShader(VkDevice device, const char* path)
 {
+    MorphArena arena;
+
     //open file in binary
     FILE* f = fopen(path, "rb");
     if (!f)
@@ -100,7 +107,10 @@ static VkShaderModule loadShader(VkDevice device, const char* path)
     fseek(f, 0, SEEK_SET);
 
     //read bytes
-    u32* code = malloc(size);
+    if (!morphArenaCreate(&arena, size))
+    { return VK_NULL_HANDLE; }
+    
+    u32* code = (u32*)morphArenaAlloc(&arena, size, _Alignof(u32));
     fread(code, 1, size, f);
     fclose(f);
 
@@ -113,11 +123,11 @@ static VkShaderModule loadShader(VkDevice device, const char* path)
     if (vkCreateShaderModule(device, &info, NULL, &module) != VK_SUCCESS)
     {
         printf("[VULKAN ERROR] Failed to create shader module: %s\n", path);
-        free(code);
+        morphArenaDestroy(&arena);
         return VK_NULL_HANDLE;
     }
 
-    free(code);
+    morphArenaDestroy(&arena);
     printf("[VULKAN] Shader loaded: %s\n", path);
     return module;
 }
@@ -280,6 +290,8 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex)
 
 static bool pickPhysicalDevice(MorphVulkanContext* ctx)
 {
+    MorphArena arena;
+
     // checking for amount of GPU`s
     u32 deviceCount = 0;
     vkEnumeratePhysicalDevices(ctx->instance, &deviceCount, NULL);
@@ -290,8 +302,11 @@ static bool pickPhysicalDevice(MorphVulkanContext* ctx)
         return false;
     }
 
+    if (!morphArenaCreate(&arena, deviceCount * sizeof(VkPhysicalDevice)))
+    { return false; }
+
     //getting GPUs
-    VkPhysicalDevice* devices = malloc(deviceCount * sizeof(VkPhysicalDevice));
+    VkPhysicalDevice* devices = (VkPhysicalDevice*)morphArenaAlloc(&arena, deviceCount * sizeof(VkPhysicalDevice), _Alignof(VkPhysicalDevice));
     vkEnumeratePhysicalDevices(ctx->instance, &deviceCount, devices);
 
     // picking the first GPU
@@ -319,13 +334,16 @@ static bool pickPhysicalDevice(MorphVulkanContext* ctx)
         printf("[VULKAN] No discrete GPU, falling back to: %s\n", props.deviceName);
     }
 
-    free(devices);
+    morphArenaDestroy(&arena);
 
     // find a queue family supports graphics
     u32 familyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(ctx->physicalDevice, &familyCount, NULL);
     
-    VkQueueFamilyProperties* families = malloc(familyCount * sizeof(VkQueueFamilyProperties));
+    if (!morphArenaCreate(&arena, familyCount * sizeof(VkQueueFamilyProperties)))
+    { return false; }
+
+    VkQueueFamilyProperties* families = (VkQueueFamilyProperties*)morphArenaAlloc(&arena, familyCount * sizeof(VkQueueFamilyProperties), _Alignof(VkQueueFamilyProperties));
     vkGetPhysicalDeviceQueueFamilyProperties(ctx->physicalDevice, &familyCount, families);
 
     ctx->graphicsFamily = UINT32_MAX;
@@ -340,7 +358,7 @@ static bool pickPhysicalDevice(MorphVulkanContext* ctx)
         }
     }
 
-    free(families);
+    morphArenaDestroy(&arena);
 
     if (ctx->graphicsFamily == UINT32_MAX)
     {
@@ -351,12 +369,16 @@ static bool pickPhysicalDevice(MorphVulkanContext* ctx)
     return true;
 }
 
-static VkSurfaceFormatKHR pickSurfaceFormat(VkPhysicalDevice device, VkSurfaceKHR surface)
+static bool pickSurfaceFormat(VkPhysicalDevice device, VkSurfaceKHR surface, VkSurfaceFormatKHR* out)
 {
+    MorphArena arena;
     u32 count = 0;
     vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &count, NULL);
 
-    VkSurfaceFormatKHR* formats = malloc(count* sizeof(VkSurfaceFormatKHR));
+    if (!morphArenaCreate(&arena, count* sizeof(VkSurfaceFormatKHR)))
+    { return false; }
+
+    VkSurfaceFormatKHR* formats = (VkSurfaceFormatKHR*)morphArenaAlloc(&arena, count* sizeof(VkSurfaceFormatKHR), _Alignof(VkSurfaceFormatKHR));
     vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &count, formats);
 
     //prefer sRGB B8G8R8A8
@@ -370,16 +392,22 @@ static VkSurfaceFormatKHR pickSurfaceFormat(VkPhysicalDevice device, VkSurfaceKH
         }
     }
     
-    free(formats);
-    return result;
+    morphArenaDestroy(&arena);
+    
+    *out = result;
+    return true;
 }
 
-static VkPresentModeKHR pickPresentMode(VkPhysicalDevice device, VkSurfaceKHR surface)
+static bool pickPresentMode(VkPhysicalDevice device, VkSurfaceKHR surface, VkPresentModeKHR* out)
 {
+    MorphArena arena;
     u32 count = 0;
     vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &count, NULL);
 
-    VkPresentModeKHR* modes = malloc(count * sizeof(VkPresentModeKHR));
+    if (!morphArenaCreate(&arena, count * sizeof(VkPresentModeKHR)))
+    { return false; }
+
+    VkPresentModeKHR* modes = (VkPresentModeKHR*)morphArenaAlloc(&arena, count * sizeof(VkPresentModeKHR), _Alignof(VkPresentModeKHR));
     vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &count, modes);
 
     //prefer mailbox, fallback to FIFO
@@ -393,8 +421,10 @@ static VkPresentModeKHR pickPresentMode(VkPhysicalDevice device, VkSurfaceKHR su
         }
     }
 
-    free(modes);
-    return result;
+    morphArenaDestroy(&arena);
+
+    *out = result;
+    return true;
 }
 
 static bool createSwapchain(MorphVulkanContext* ctx, GLFWwindow* window)
@@ -403,8 +433,13 @@ static bool createSwapchain(MorphVulkanContext* ctx, GLFWwindow* window)
     VkSurfaceCapabilitiesKHR caps;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(ctx->physicalDevice, ctx->surface, &caps);
 
-    VkSurfaceFormatKHR format = pickSurfaceFormat(ctx->physicalDevice, ctx->surface);
-    VkPresentModeKHR mode = pickPresentMode(ctx->physicalDevice, ctx->surface);
+    VkSurfaceFormatKHR format;
+    if (!pickSurfaceFormat(ctx->physicalDevice, ctx->surface, &format))
+    { return false; }
+
+    VkPresentModeKHR mode;
+    if (!pickPresentMode(ctx->physicalDevice, ctx->surface, &mode))
+    { return false; }
 
     //extent = resolution of swapchain images
     //query actual pixel size from GLFW - differs from screen coord on hight-DPI
@@ -447,7 +482,7 @@ static bool createSwapchain(MorphVulkanContext* ctx, GLFWwindow* window)
     swapchainInfo.presentMode = mode;
     swapchainInfo.clipped = VK_TRUE; //dont render pixels hidden behind other windows
 
-    if (vkCreateSwapchainKHR(ctx->logicalDevice, &swapchainInfo, NULL, & ctx->swapchain))
+    if (vkCreateSwapchainKHR(ctx->logicalDevice, &swapchainInfo, NULL, &ctx->swapchain) != VK_SUCCESS)
     {
         printf("[VULKAN ERROR] Failed to create swapchain!\n");
         return false;
@@ -456,7 +491,7 @@ static bool createSwapchain(MorphVulkanContext* ctx, GLFWwindow* window)
     //retrieve the actual images the swapchain created (Vulkan may have created more than required)
     vkGetSwapchainImagesKHR(ctx->logicalDevice, ctx->swapchain, &ctx->swapchainImageCount, NULL);
 
-    ctx->swapchainImages = malloc(ctx->swapchainImageCount * sizeof(VkImage));
+    ctx->swapchainImages = malloc( ctx->swapchainImageCount * sizeof(VkImage));
     vkGetSwapchainImagesKHR(ctx->logicalDevice, ctx->swapchain, &ctx->swapchainImageCount, ctx->swapchainImages);
 
     ctx->swapchainFormat = format.format;
@@ -951,7 +986,12 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
     const char** glfwExts = glfwGetRequiredInstanceExtensions(&glfwExtCount);
 
     u32 extCount = glfwExtCount + (VALIDATION_ENABLED ? 1 : 0);
-    const char** extensions = malloc(extCount * sizeof(const char*));
+    MorphArena arena;
+
+    if (!morphArenaCreate(&arena, extCount * sizeof(const char*)))
+    { return false; }
+
+    const char** extensions = (const char**)morphArenaAlloc(&arena, extCount * sizeof(const char*), _Alignof(const char**));
     
     for (u32 i = 0; i < glfwExtCount; i++)
         extensions[i] = glfwExts[i];
@@ -975,11 +1015,11 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
     if (vkCreateInstance(&instanceInfo, NULL, &ctx->instance) != VK_SUCCESS)
     {
         printf("[VULKAN ERROR] Failed to create Vulkan instance\n");
-        free(extensions);
+        morphArenaDestroy(&arena);
         return false;
     }
 
-    free(extensions);
+    morphArenaDestroy(&arena);
     printf("[VULKAN] Vulkan instance created\n");
 
     //debug messenger
