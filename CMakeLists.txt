@@ -10,7 +10,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(Vulkan REQUIRED)
 
 #executable
-add_executable(MorphEngine main.c morphVulkan.c MorphBuffer.c stb_image_impl.c)
+add_executable(MorphEngine
+    main.c
+    MorphVulkan.c
+    MorphBuffer.c
+    stb_image_impl.c
+    MorphArena.c
+    MorphLog.c)
 target_compile_definitions(MorphEngine PRIVATE _CRT_SECURE_NO_WARNINGS)
 
 #directories

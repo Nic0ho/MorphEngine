@@ -2,6 +2,7 @@
 #include "MorphBuffer.h"
 #include "MorphMath.h"
 #include "MorphArena.h"
+#include "MorphLog.h"
 
 #include <GLFW/glfw3.h>
 
@@ -81,10 +82,12 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback
     (void)type;
     (void)userData;
 
-    if (severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
-        printf("[VULKAN ERROR] %s\n\n", data->pMessage);
+    if (severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+        morphLog(LOG_ERROR, "%s\n", data->pMessage);
+    else if (severity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+        morphLog(LOG_WARNING, "%s\n", data->pMessage);
     else
-        printf("[VULKAN] %s\n\n", data->pMessage);
+        morphLog(LOG_MESSAGE, "%s\n", data->pMessage);
 
     return VK_FALSE; 
 }
@@ -97,7 +100,7 @@ static VkShaderModule loadShader(VkDevice device, const char* path)
     FILE* f = fopen(path, "rb");
     if (!f)
     {
-        printf("[VULKAN ERROR] Cannot open shader: %s\n", path);
+        morphLog(LOG_ERROR, "Cannot open shader: %s", path);
         return VK_NULL_HANDLE;
     }
 
@@ -122,13 +125,13 @@ static VkShaderModule loadShader(VkDevice device, const char* path)
     VkShaderModule module;
     if (vkCreateShaderModule(device, &info, NULL, &module) != VK_SUCCESS)
     {
-        printf("[VULKAN ERROR] Failed to create shader module: %s\n", path);
+        morphLog(LOG_ERROR, "Failed to create shader module: %s", path);
         morphArenaDestroy(&arena);
         return VK_NULL_HANDLE;
     }
 
     morphArenaDestroy(&arena);
-    printf("[VULKAN] Shader loaded: %s\n", path);
+    morphLog(LOG_MESSAGE, "Shader loaded: %s", path);
     return module;
 }
 
@@ -151,7 +154,7 @@ static bool createSyncObjects(MorphVulkanContext* ctx)
         if (vkCreateSemaphore(ctx->logicalDevice, &semInfo, NULL, &ctx->imageAvailableSemaphores[i]) != VK_SUCCESS ||
             vkCreateSemaphore(ctx->logicalDevice, &semInfo, NULL, &ctx->renderFinishedSemaphores[i]) != VK_SUCCESS)
         {
-            printf("[VULKAN ERROR] Failed to create semaphores for image %u !\n", i);
+            morphLog(LOG_ERROR, "Failed to create semaphores for image %u !", i);
             return false;
         }
     }
@@ -160,12 +163,12 @@ static bool createSyncObjects(MorphVulkanContext* ctx)
     {
         if (vkCreateFence(ctx->logicalDevice, &fenceInfo, NULL, &ctx->inFlightFences[i]) != VK_SUCCESS)
         {
-            printf("[VULKAN ERROR] Failed to create fence for frame %u !\n", i);
+            morphLog(LOG_ERROR, "Failed to create fence for frame %u !", i);
             return false;
         }
     }
 
-    printf("[VULKAN] Sync objects created\n");
+    morphLog(LOG_MESSAGE, "Sync objects created");
     return true;
 }
 
@@ -298,7 +301,7 @@ static bool pickPhysicalDevice(MorphVulkanContext* ctx)
 
     if (deviceCount == 0)
     {
-        printf("[VULKAN ERROR] No GPUs with Vulkan support found\n");
+        morphLog(LOG_ERROR, "No GPUs with Vulkan support found!");
         return false;
     }
 
@@ -320,7 +323,7 @@ static bool pickPhysicalDevice(MorphVulkanContext* ctx)
         if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
         {
             ctx->physicalDevice = devices[i];
-            printf("[VULKAN] GPU selected: %s\n", props.deviceName);
+            morphLog(LOG_MESSAGE, "GPU selected: %s", props.deviceName);
             break;
         }
     }
@@ -331,7 +334,7 @@ static bool pickPhysicalDevice(MorphVulkanContext* ctx)
         ctx->physicalDevice = devices[0];
         VkPhysicalDeviceProperties props;
         vkGetPhysicalDeviceProperties(ctx->physicalDevice, &props);
-        printf("[VULKAN] No discrete GPU, falling back to: %s\n", props.deviceName);
+        morphLog(LOG_MESSAGE, "No discrete GPU, falling back to: %s", props.deviceName);
     }
 
     morphArenaDestroy(&arena);
@@ -353,7 +356,7 @@ static bool pickPhysicalDevice(MorphVulkanContext* ctx)
         if (families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
         {
             ctx->graphicsFamily = i;
-            printf("[VULKAN] Graphics queue family: %u\n", i);
+            morphLog(LOG_MESSAGE, "Graphics queue family: %u", i);
             break;
         }
     }
@@ -362,7 +365,7 @@ static bool pickPhysicalDevice(MorphVulkanContext* ctx)
 
     if (ctx->graphicsFamily == UINT32_MAX)
     {
-        printf("[VULKAN ERROR] No graphics queue family found\n");
+        morphLog(LOG_ERROR, "No graphics queue family found!");
         return false;
     }
 
@@ -484,7 +487,7 @@ static bool createSwapchain(MorphVulkanContext* ctx, GLFWwindow* window)
 
     if (vkCreateSwapchainKHR(ctx->logicalDevice, &swapchainInfo, NULL, &ctx->swapchain) != VK_SUCCESS)
     {
-        printf("[VULKAN ERROR] Failed to create swapchain!\n");
+        morphLog(LOG_ERROR, "Failed to create swapchain!");
         return false;
     }
 
@@ -497,7 +500,7 @@ static bool createSwapchain(MorphVulkanContext* ctx, GLFWwindow* window)
     ctx->swapchainFormat = format.format;
     ctx->swapchainExtent = extent;
 
-    printf("[VULKAN] Swapchain created (%ux%u, %u images)\n", extent.width, extent.height, ctx->swapchainImageCount);
+    morphLog(LOG_MESSAGE, "Swapchain created (%ux%u, %u images)", extent.width, extent.height, ctx->swapchainImageCount);
     
     return true;
 }
@@ -541,7 +544,7 @@ static bool createLogicalDevice(MorphVulkanContext* ctx)
 
     if (vkCreateDevice(ctx->physicalDevice, &deviceInfo, NULL, &ctx->logicalDevice) != VK_SUCCESS)
     {
-        printf("[VULKAN ERROR] Failed to create logical device\n");
+        morphLog(LOG_ERROR, "Failed to create logical device!");
         return false;
     }
 
@@ -550,7 +553,7 @@ static bool createLogicalDevice(MorphVulkanContext* ctx)
 
     ctx->fnPushDescriptors = (PFN_vkCmdPushDescriptorSetKHR)vkGetDeviceProcAddr(ctx->logicalDevice, "vkCmdPushDescriptorSetKHR");
 
-    printf("[VULKAN] Logical device created\n");
+    morphLog(LOG_MESSAGE, "Logical device created");
     return true;
 }
 
@@ -581,12 +584,12 @@ static bool createImageViews(MorphVulkanContext* ctx)
 
         if (vkCreateImageView(ctx->logicalDevice, &viewInfo, NULL, &ctx->swapchainImageViews[i]) != VK_SUCCESS)
         {
-            printf("[VULKAN ERROR] Failed to create image view %u\n", i);
+            morphLog(LOG_ERROR, "Failed to create image view %u !", i);
             return false;
         }
     }
 
-    printf("[VULKAN] Image views created (%u)\n", ctx->swapchainImageCount);
+    morphLog(LOG_MESSAGE, "Image views created (%u)", ctx->swapchainImageCount);
     return true;
 }
 
@@ -615,7 +618,7 @@ static bool createVertexBuffer(MorphVulkanContext* ctx)
     //staging no longer needed
     morphBufferDestroy(ctx->logicalDevice, &staging);
 
-    printf("[VULKAN] Vertex buffer created\n");
+    morphLog(LOG_MESSAGE, "Vertex buffer created");
     
     return true;
 }
@@ -641,7 +644,7 @@ static bool createIndexBuffer(MorphVulkanContext* ctx)
 
     morphBufferDestroy(ctx->logicalDevice, &staging);
 
-    printf("[VULKAN] Index buffer created (%u indices)\n", ctx->indexCount);
+    morphLog(LOG_MESSAGE, "Index buffer created (%u indices)", ctx->indexCount);
     return true;
 }
 
@@ -661,11 +664,11 @@ static bool createDescriptorSetLayout(MorphVulkanContext* ctx)
 
     if (vkCreateDescriptorSetLayout(ctx->logicalDevice, &layoutInfo, NULL, &ctx->descriptorSetLayout) != VK_SUCCESS)
     {
-        printf("[VULKAN ERROR] Failed to create descriptor set layout!\n");
+        morphLog(LOG_ERROR, "Failed to create descriptor set layout!");
         return false;
     }
 
-    printf("[VULKAN] Descriptor set layout created\n");
+    morphLog(LOG_MESSAGE, "Descriptor set layout created");
     
     return true;
 }
@@ -678,7 +681,7 @@ static bool createGraphicsPipeline(MorphVulkanContext* ctx)
 
     if (vertShader == VK_NULL_HANDLE || fragShader == VK_NULL_HANDLE)
     {
-        printf("[VULKAN ERROR] Failed to load shaders!\n");
+        morphLog(LOG_ERROR, "Failed to load shaders!");
         return false;
     }
 
@@ -797,7 +800,7 @@ static bool createGraphicsPipeline(MorphVulkanContext* ctx)
 
     if (vkCreatePipelineLayout(ctx->logicalDevice, &layoutInfo, NULL, &ctx->pipelineLayout) != VK_SUCCESS)
     {
-        printf("[VULKAN ERROR] Failed to create pipeline layout!\n");
+        morphLog(LOG_ERROR, "Failed to create pipeline layout!");
         return false;
     }
 
@@ -824,7 +827,7 @@ static bool createGraphicsPipeline(MorphVulkanContext* ctx)
 
     if (vkCreateGraphicsPipelines(ctx->logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &ctx->graphicsPipeline) != VK_SUCCESS)
     {
-        printf("[VULKAN ERROR] Failed to create graphics pipeline\n");
+        morphLog(LOG_ERROR, "Failed to create graphics pipeline!");
         return false;
     }
 
@@ -832,7 +835,7 @@ static bool createGraphicsPipeline(MorphVulkanContext* ctx)
     vkDestroyShaderModule(ctx->logicalDevice, vertShader, NULL);
     vkDestroyShaderModule(ctx->logicalDevice, fragShader, NULL);
 
-    printf("[VULKAN] Graphics pipeline created\n");
+    morphLog(LOG_MESSAGE, "Graphics pipeline created");
     return true;
 }
 
@@ -847,7 +850,7 @@ static bool createCommandPool(MorphVulkanContext* ctx)
 
     if (vkCreateCommandPool(ctx->logicalDevice, &poolInfo, NULL, &ctx->commandPool) != VK_SUCCESS)
     {
-        printf("[VULKAN ERROR] Failed to create command pool!\n");
+        morphLog(LOG_ERROR, "Failed to create command pool!");
         return false;
     }
 
@@ -862,11 +865,11 @@ static bool createCommandPool(MorphVulkanContext* ctx)
 
     if (vkAllocateCommandBuffers(ctx->logicalDevice, &allocInfo, ctx->commandBuffers) != VK_SUCCESS)
     {
-        printf("[VULKAN ERROR] Failed to allocate command buffers!\n");
+        morphLog(LOG_ERROR, "Failed to allocate command buffers!");
         return false;
     }
 
-    printf("[VULKAN] Command pool and buffers created\n");
+    morphLog(LOG_MESSAGE, "Command pool and buffers created");
     return true;
 }
 
@@ -899,7 +902,7 @@ static bool recreateSwapchain(MorphVulkanContext* ctx, GLFWwindow* window)
         !createImageViews(ctx))
         return false;
 
-    printf("[VULKAN] Swapchain recreated (%ux%u)\n", ctx->swapchainExtent.width, ctx->swapchainExtent.height);
+    morphLog(LOG_MESSAGE, "Swapchain recreated (%ux%u)", ctx->swapchainExtent.width, ctx->swapchainExtent.height);
     
     return true;
 }
@@ -917,12 +920,12 @@ void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window)
     if (result == VK_ERROR_OUT_OF_DATE_KHR)
     {
         if (!recreateSwapchain(ctx, window))
-            printf("[VULKAN ERROR] Failed to recreate swapchain!\n");
+            morphLog(LOG_ERROR, "Failed to recreate swapchain!");
         return;
     }
     else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
     {
-        printf("[VULKAN ERROR] Failed to acquire swapchain image!\n");
+        morphLog(LOG_ERROR, "Failed to acquire swapchain image!");
         return;
     }
 
@@ -968,7 +971,7 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
 {
     if (VALIDATION_ENABLED && !checkValidationSupport())
     {
-        printf("Validation layers not available");
+        morphLog(LOG_WARNING, "Validation layers not available!");
         return false;
     }
 
@@ -1014,13 +1017,13 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
 
     if (vkCreateInstance(&instanceInfo, NULL, &ctx->instance) != VK_SUCCESS)
     {
-        printf("[VULKAN ERROR] Failed to create Vulkan instance\n");
+        morphLog(LOG_ERROR, "Failed to create Vulkan instance!");
         morphArenaDestroy(&arena);
         return false;
     }
 
     morphArenaDestroy(&arena);
-    printf("[VULKAN] Vulkan instance created\n");
+    morphLog(LOG_MESSAGE, "Vulkan instance created");
 
     //debug messenger
     ctx->debugMessenger = VK_NULL_HANDLE;
@@ -1041,18 +1044,18 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
         PFN_vkCreateDebugUtilsMessengerEXT createFn = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(ctx->instance, "vkCreateDebugUtilsMessengerEXT");
 
         if (!createFn || createFn(ctx->instance, &dmInfo, NULL, &ctx->debugMessenger) != VK_SUCCESS)
-            printf("[VULKAN ERROR] Debug messenger creation failed\n");
+            morphLog(LOG_ERROR, "Debug messenger creation failed!");
         else
-            printf("[VULKAN] Debug messenger created\n");
+            morphLog(LOG_MESSAGE, "Debug messenger created");
     }
 
     //window surface
     if (glfwCreateWindowSurface(ctx->instance, window, NULL, &ctx->surface) != VK_SUCCESS)
     {
-        printf("[VULKAN ERROR] Failed to create window surface!\n");
+        morphLog(LOG_ERROR, "Failed to create window surface!");
         return false;
     }
-    printf("[VULKAN] Window surface created\n");
+    morphLog(LOG_MESSAGE, "Window surface created");
 
         
     if (!pickPhysicalDevice(ctx)        || //physical device
@@ -1131,5 +1134,5 @@ void morphVulkanShutdown(MorphVulkanContext *ctx)
     // instance shutdown
     vkDestroyInstance(ctx->instance, NULL);
 
-    printf("[VULKAN] Vulkan shutdown\n");
+    morphLog(LOG_MESSAGE, "Vulkan shutdown");
 }
