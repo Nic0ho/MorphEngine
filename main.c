@@ -1,6 +1,8 @@
 #include <stdio.h>
 
+#include "MorphLog.h"
 #include "MorphVulkan.h"
+#include "MorphInput.h"
 
 #include <GLFW/glfw3.h>
 
@@ -27,6 +29,9 @@ int main(void)
         return 1;
     }
 
+    //Input
+    MorphInput input = {0};
+
     //Vulkan
     MorphVulkanContext vk = {0};
     if (!morphVulkanInit(&vk, window))
@@ -41,6 +46,13 @@ int main(void)
     while(!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
+        morphInputUpdate(&input, window);
+        
+        if (morphInputIsKeyPressed(&input, GLFW_KEY_SPACE))
+            morphLog(LOG_MESSAGE, "SPACE PRESSED");
+        if (morphInputIsKeyReleased(&input, GLFW_KEY_SPACE))
+            morphLog(LOG_MESSAGE, "SPACE RELEASED");
+
         morphVulkanDraw(&vk, window);
     }
 

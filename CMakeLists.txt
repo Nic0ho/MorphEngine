@@ -16,7 +16,9 @@ add_executable(MorphEngine
     MorphBuffer.c
     stb_image_impl.c
     MorphArena.c
-    MorphLog.c)
+    MorphLog.c
+    MorphInput.c
+    MorphCamera.c)
 target_compile_definitions(MorphEngine PRIVATE _CRT_SECURE_NO_WARNINGS)
 
 #directories
