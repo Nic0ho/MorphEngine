@@ -1,5 +1,6 @@
 #include "MorphBuffer.h"
 #include "MorphTypes.h"
+#include "MorphLog.h"
 #include "external/stb/stb_image.h"
 
 #include <stdint.h>
@@ -168,6 +169,16 @@ bool morphTextureLoad(VkDevice device, VkPhysicalDevice physicalDevice, VkComman
             memTypeIndex = i;
             break;
         }
+    }
+
+    if (memTypeIndex == UINT32_MAX)
+    {
+        morphLog(LOG_ERROR, "Memory type index not found!");
+
+        morphBufferDestroy(device, &staging);
+        vkDestroyImage(device, out->image, NULL);
+
+        return false;
     }
 
     VkMemoryAllocateInfo allocInfo = {0};
