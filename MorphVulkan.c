@@ -1,7 +1,6 @@
 #include "MorphVulkan.h"
-#include "MorphBuffer.h"
-#include "MorphMath.h"
 #include "MorphArena.h"
+#include "MorphCamera.h"
 #include "MorphLog.h"
 
 #include <GLFW/glfw3.h>
@@ -21,12 +20,13 @@ typedef struct
 
 static const Vertex VERTICES[] =
 {
-    {{ 0.0f, -0.2}, {0.7f, 0.2f, 0.3f}, {0.5f, 0.0f}},
-    {{0.0f,  0.5f}, {0.1f, 0.3f, 0.7f}, {1.0f, 1.0f}},
-    {{-0.5f, 0.5f}, {0.9f, 0.7f, 0.5f}, {0.0f, 1.0f}}
+    {{0.2f, -0.2f}, {0.7f, 0.2f, 0.3f}, {1.0f, 0.0f}},
+    {{0.2f, 0.2f}, {0.1f, 0.3f, 0.7f}, {1.0f, 1.0f}},
+    {{-0.2f, 0.2f}, {0.9f, 0.7f, 0.5f}, {0.0f, 1.0f}},
+    {{-0.2f, -0.2f}, {0.9f, 0.7f, 0.5f}, {0.0f, 0.0f}}
 };
 
-static const u16 INDICES[] = { 0, 1, 2 };
+static const u16 INDICES[] = { 0, 1, 2, 0, 2, 3 };
 
 //Vulkan validation layers
 static const char* VALIDATION_LAYERS[] = { "VK_LAYER_KHRONOS_validation" };
@@ -199,7 +199,7 @@ static void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout ol
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
-static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex)
+static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex, MorphCamera* camera)
 {
     VkCommandBuffer cmd = ctx->commandBuffers[ctx->currentFrame];
 
@@ -237,7 +237,7 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex)
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->graphicsPipeline);
 
     //push transform directly into command buffer
-    Mat4 transform = mat4Translate(-0.5f, 0.0f, 0.0f); //transform
+    Mat4 transform = morphCameraGetViewProjection(camera, 10.0f, 5.625f);
     vkCmdPushConstants(cmd, ctx->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Mat4), &transform);
 
     VkDescriptorImageInfo imageInfo = {0};
@@ -765,7 +765,15 @@ static bool createGraphicsPipeline(MorphVulkanContext* ctx)
         VK_COLOR_COMPONENT_G_BIT |
         VK_COLOR_COMPONENT_B_BIT |
         VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
+    colorBlendAttachment.blendEnable = VK_TRUE;
+    //color
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachment.colorBlendOp        = VK_BLEND_OP_ADD;
+    //alpha
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachment.alphaBlendOp        = VK_BLEND_OP_ADD;
 
     VkPipelineColorBlendStateCreateInfo colorBlending = {0};
     colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -907,7 +915,7 @@ static bool recreateSwapchain(MorphVulkanContext* ctx, GLFWwindow* window)
     return true;
 }
 
-void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window)
+void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window, MorphCamera* camera)
 {
     //wait untill this frame slot is free (GPU finished with it)
     vkWaitForFences(ctx->logicalDevice, 1, &ctx->inFlightFences[ctx->currentFrame], VK_TRUE, UINT64_MAX);
@@ -934,7 +942,7 @@ void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window)
 
     //record commands
     vkResetCommandBuffer(ctx->commandBuffers[ctx->currentFrame], 0);
-    recordCommandBuffer(ctx, imageIndex);
+    recordCommandBuffer(ctx, imageIndex, camera);
 
     //submit
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;

@@ -3,6 +3,8 @@
 #include "MorphLog.h"
 #include "MorphVulkan.h"
 #include "MorphInput.h"
+#include "MorphCamera.h"
+#include "MorphTime.h"
 
 #include <GLFW/glfw3.h>
 
@@ -29,8 +31,10 @@ int main(void)
         return 1;
     }
 
-    //Input
-    MorphInput input = {0};
+    //Initials
+    MorphInput input = {0};      //Input
+    MorphCamera camera ={0};     //Camera
+    MorphTime timeState = {0};   //Time
 
     //Vulkan
     MorphVulkanContext vk = {0};
@@ -46,14 +50,21 @@ int main(void)
     while(!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
+
+        morphTimeUpdate(&timeState);
+
         morphInputUpdate(&input, window);
         
-        if (morphInputIsKeyPressed(&input, GLFW_KEY_SPACE))
-            morphLog(LOG_MESSAGE, "SPACE PRESSED");
-        if (morphInputIsKeyReleased(&input, GLFW_KEY_SPACE))
-            morphLog(LOG_MESSAGE, "SPACE RELEASED");
+        if (morphInputIsKeyDown(&input, GLFW_KEY_D))
+            camera.position.x += (f32)timeState.deltaTime * 3.0f;
+        if (morphInputIsKeyDown(&input, GLFW_KEY_A))
+            camera.position.x -= (f32)timeState.deltaTime * 3.0f;
+        if (morphInputIsKeyDown(&input, GLFW_KEY_W))
+            camera.position.y += (f32)timeState.deltaTime * 3.0f;
+        if (morphInputIsKeyDown(&input, GLFW_KEY_S))
+            camera.position.y -= (f32)timeState.deltaTime * 3.0f;
 
-        morphVulkanDraw(&vk, window);
+        morphVulkanDraw(&vk, window, &camera);
     }
 
     //shutdown

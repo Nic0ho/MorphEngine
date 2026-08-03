@@ -4,6 +4,7 @@
 #include "vulkan/vulkan.h"
 #include "MorphMath.h"
 #include "MorphBuffer.h"
+#include "MorphCamera.h"
 
 #include <GLFW/glfw3.h>
 
@@ -43,4 +44,4 @@ typedef struct
 
 bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window);
 void morphVulkanShutdown(MorphVulkanContext* ctx);
-void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window);
+void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window, MorphCamera* camera);
