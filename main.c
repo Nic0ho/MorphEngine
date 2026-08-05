@@ -22,7 +22,7 @@ int main(void)
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
     //window creation
-    //                   win create func |   res  |    win name  |     ?      |
+    //                   win create func |   res     |   win name   |     ?      |
     GLFWwindow* window = glfwCreateWindow(1920, 1080, "MorphEngine", NULL, NULL);
     if (!window)
     {
@@ -33,8 +33,9 @@ int main(void)
 
     //Initials
     MorphInput input = {0};      //Input
-    MorphCamera camera ={0};     //Camera
     MorphTime timeState = {0};   //Time
+    MorphCamera camera ={0};     // Camera
+    camera.viewWidth = 5.0f;
 
     //Vulkan
     MorphVulkanContext vk = {0};
@@ -63,6 +64,10 @@ int main(void)
             camera.position.y += (f32)timeState.deltaTime * 3.0f;
         if (morphInputIsKeyDown(&input, GLFW_KEY_S))
             camera.position.y -= (f32)timeState.deltaTime * 3.0f;
+        if (morphInputIsKeyPressed(&input, GLFW_KEY_UP))
+            camera.viewWidth += 0.25f;
+        if (morphInputIsKeyPressed(&input, GLFW_KEY_DOWN))
+            camera.viewWidth -= 0.25f;
 
         morphVulkanDraw(&vk, window, &camera);
     }

@@ -237,7 +237,9 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex, MorphCa
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->graphicsPipeline);
 
     //push transform directly into command buffer
-    Mat4 transform = morphCameraGetViewProjection(camera, 10.0f, 5.625f);
+    f32 aspectRatio = (f32)ctx->swapchainExtent.width / (f32)ctx->swapchainExtent.height;
+
+    Mat4 transform = morphCameraGetViewProjection(camera, aspectRatio);
     vkCmdPushConstants(cmd, ctx->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Mat4), &transform);
 
     VkDescriptorImageInfo imageInfo = {0};
