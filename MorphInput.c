@@ -1,4 +1,5 @@
 #include "MorphInput.h"
+#include "GLFW/glfw3.h"
 
 #include <string.h>
 
@@ -8,6 +9,15 @@ void morphInputUpdate(MorphInput* input, GLFWwindow* window)
 
     for (u32 i = 0; i < LEN(input->downNow); i++)
         input->downNow[i] = (glfwGetKey(window, i) == GLFW_PRESS);
+
+    return;
+}
+
+void morphScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    MorphInput* input = (MorphInput*)glfwGetWindowUserPointer(window);
+
+    input->scrollDelta += (f32)yoffset;
 
     return;
 }

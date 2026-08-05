@@ -7,9 +7,11 @@ typedef struct
 {
     bool downNow[GLFW_KEY_LAST + 1];
     bool downLastFrame[GLFW_KEY_LAST + 1];
+    f32 scrollDelta;
 } MorphInput;
 
 void morphInputUpdate(MorphInput* input, GLFWwindow* window);
+void morphScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
 bool morphInputIsKeyDown(MorphInput* input, u32 key);
 bool morphInputIsKeyPressed(MorphInput* input, u32 key);
