@@ -2,6 +2,8 @@
 #include "MorphArena.h"
 #include "MorphCamera.h"
 #include "MorphLog.h"
+#include "MorphMath.h"
+#include "MorphScene.h"
 
 #include <GLFW/glfw3.h>
 
@@ -20,10 +22,10 @@ typedef struct
 
 static const Vertex VERTICES[] =
 {
-    {{0.2f, -0.2f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
-    {{0.2f, 0.2f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.2f, 0.2f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-    {{-0.2f, -0.2f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}}
+    {{ 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
+    {{ 0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+    {{-0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+    {{-0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}}
 };
 
 static const u16 INDICES[] = { 0, 1, 2, 0, 2, 3 };
@@ -199,7 +201,7 @@ static void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout ol
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
-static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex, MorphCamera* camera)
+static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex, MorphCamera* camera, Entities* scene)
 {
     VkCommandBuffer cmd = ctx->commandBuffers[ctx->currentFrame];
 
@@ -234,27 +236,7 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex, MorphCa
     vkCmdBeginRendering(cmd, &renderingInfo);
 
     //bind pipeline
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->graphicsPipeline);
-
-    //push transform directly into command buffer
-    f32 aspectRatio = (f32)ctx->swapchainExtent.width / (f32)ctx->swapchainExtent.height;
-
-    Mat4 transform = morphCameraGetViewProjection(camera, aspectRatio);
-    vkCmdPushConstants(cmd, ctx->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(Mat4), &transform);
-
-    VkDescriptorImageInfo imageInfo = {0};
-    imageInfo.sampler = ctx->texture.sampler;
-    imageInfo.imageView = ctx->texture.view;
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkWriteDescriptorSet write = {0};
-    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstBinding = 0;
-    write.descriptorCount = 1;
-    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    write.pImageInfo = &imageInfo;
-
-    ctx->fnPushDescriptors(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->pipelineLayout, 0, 1, &write);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->graphicsPipeline);    
 
     //set dynamic viewport
     VkViewport viewport = {0};
@@ -282,9 +264,46 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex, MorphCa
     //bind index buffer
     vkCmdBindIndexBuffer(cmd, ctx->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT16);
 
+    //push transform directly into command buffer
+    f32 aspectRatio = (f32)ctx->swapchainExtent.width / (f32)ctx->swapchainExtent.height;
 
-    //draw 3 verices, 1 instacne, startit at vertex 0
-    vkCmdDrawIndexed(cmd, ctx->indexCount, 1, 0, 0, 0);
+    Mat4 viewProj = morphCameraGetViewProjection(camera, aspectRatio);
+
+    VkDescriptorImageInfo imageInfo = {0};
+    imageInfo.sampler = ctx->atlas.texture.sampler;
+    imageInfo.imageView = ctx->atlas.texture.view;
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkWriteDescriptorSet write = {0};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstBinding = 0;
+    write.descriptorCount = 1;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write.pImageInfo = &imageInfo;
+
+    ctx->fnPushDescriptors(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->pipelineLayout, 0, 1, &write);
+
+    //loading scene
+    for (u32 i = 0; i < scene->count; i++)
+    {
+        if (!(scene->entityFlags[i] & COMPONENT_TEXTURE)) continue;
+
+        SpriteRect* spritePlain = &ctx->atlas.sprite[scene->spriteID[i]];
+        
+        Vec2 s = scene->size[i];
+        Mat4 scale = mat4Scale(s.x, s.y, 1.0f);
+        Mat4 translate = mat4Translate(scene->position[i].x, scene->position[i].y, 0);
+        Mat4 entityTransform = mat4Mul(viewProj, mat4Mul(translate, scale));
+
+        PushConstants pc = {0};
+        pc.transform = entityTransform;
+        pc.uvOffset = spritePlain->uvOffset;
+        pc.uvScale = spritePlain->uvScale;
+
+        vkCmdPushConstants(cmd, ctx->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstants), &pc);
+        vkCmdDrawIndexed(cmd, ctx->indexCount, 1, 0, 0, 0);
+    }
+    
     vkCmdEndRendering(cmd);
 
     //transition: COLOR_ATTACHMENT -> PRESENT_SRC (ready to show om screen)
@@ -798,7 +817,7 @@ static bool createGraphicsPipeline(MorphVulkanContext* ctx)
     VkPushConstantRange pushRange = {0};
     pushRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pushRange.offset = 0;
-    pushRange.size = sizeof(Mat4);
+    pushRange.size = sizeof(PushConstants);
 
     //pipeline layout - describes push counstannts and descriptor sets. Empty for now since triangle is harcoded
     VkPipelineLayoutCreateInfo layoutInfo = {0};
@@ -917,7 +936,7 @@ static bool recreateSwapchain(MorphVulkanContext* ctx, GLFWwindow* window)
     return true;
 }
 
-void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window, MorphCamera* camera)
+void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window, MorphCamera* camera, Entities* scene)
 {
     //wait untill this frame slot is free (GPU finished with it)
     vkWaitForFences(ctx->logicalDevice, 1, &ctx->inFlightFences[ctx->currentFrame], VK_TRUE, UINT64_MAX);
@@ -944,7 +963,7 @@ void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window, MorphCamera* c
 
     //record commands
     vkResetCommandBuffer(ctx->commandBuffers[ctx->currentFrame], 0);
-    recordCommandBuffer(ctx, imageIndex, camera);
+    recordCommandBuffer(ctx, imageIndex, camera, scene);
 
     //submit
     VkPipelineStageFlags waitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -1077,8 +1096,7 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
         !createCommandPool(ctx)         || //command pool
         !createSyncObjects(ctx)         || //create sync objects
         !createVertexBuffer(ctx)        || //create vertex buffer
-        !createIndexBuffer(ctx)         ||  //create index buffer
-        !morphTextureLoad(ctx->logicalDevice, ctx->physicalDevice, ctx->commandPool, ctx->graphicsQueue, "assets/test.png", &ctx->texture))
+        !createIndexBuffer(ctx))            //create index buffer
         return false;
 
     return true;
@@ -1114,7 +1132,7 @@ void morphVulkanShutdown(MorphVulkanContext *ctx)
     morphBufferDestroy(ctx->logicalDevice, &ctx->vertexBuffer);
 
     //texture shutdown
-    morphTextureDestroy(ctx->logicalDevice, &ctx->texture);
+    morphAtlasDestroy(&ctx->atlas, ctx->logicalDevice);
     
     //graphics pipline shutdown
     vkDestroyPipeline(ctx->logicalDevice, ctx->graphicsPipeline, NULL);

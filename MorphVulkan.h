@@ -1,10 +1,13 @@
 #pragma once
 
+#include "MorphScene.h"
 #include "MorphTypes.h"
 #include "vulkan/vulkan.h"
 #include "MorphMath.h"
 #include "MorphBuffer.h"
 #include "MorphCamera.h"
+#include "MorphScene.h"
+#include "MorphAtlas.h"
 
 #include <GLFW/glfw3.h>
 
@@ -37,11 +40,18 @@ typedef struct
     MorphBuffer                   vertexBuffer;
     MorphBuffer                   indexBuffer;
     u32                           indexCount;
-    MorphTexture                  texture;
+    MorphAtlas                    atlas;
     VkDescriptorSetLayout         descriptorSetLayout;
     PFN_vkCmdPushDescriptorSetKHR fnPushDescriptors;
 } MorphVulkanContext;
 
+typedef struct
+{
+    Mat4 transform;
+    Vec2 uvOffset;
+    Vec2 uvScale;
+} PushConstants;
+
 bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window);
 void morphVulkanShutdown(MorphVulkanContext* ctx);
-void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window, MorphCamera* camera);
+void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window, MorphCamera* camera, Entities* scene);

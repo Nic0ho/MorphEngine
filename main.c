@@ -1,6 +1,8 @@
 #include <stdio.h>
 
+#include "MorphAtlas.h"
 #include "MorphLog.h"
+#include "MorphScene.h"
 #include "MorphVulkan.h"
 #include "MorphInput.h"
 #include "MorphCamera.h"
@@ -56,6 +58,19 @@ int main(void)
         return 1;
     }
 
+    // Scene
+    Entities scene = {0};
+    
+    EntityHandle player = morphSceneSpawnEntity(&scene, ENTITY_PLAYER, (Vec2){1.0f, 0.0f}, (Vec2){1.0f, 1.0f});
+    EntityHandle block = morphSceneSpawnEntity(&scene, ENTITY_BLOCK, (Vec2){0.0f, 0.0f}, (Vec2){1.0f, 1.0f});
+    //sprites build
+    morphAtlasAddSprite(&vk.atlas, "assets/player.png");
+    morphAtlasAddSprite(&vk.atlas, "assets/block.png");
+    morphAtlasBuild(&vk.atlas, vk.logicalDevice, vk.physicalDevice, vk.commandPool, vk.graphicsQueue);
+
+    scene.spriteID[player.index] = 0;
+    scene.spriteID[block.index] = 1;
+
     //main loop
     while(!glfwWindowShouldClose(window))
     {
@@ -74,6 +89,8 @@ int main(void)
         if (morphInputIsKeyDown(&input, GLFW_KEY_S))
             camera.position.y -= (f32)timeState.deltaTime * camera.speed;
         camera.viewWidth -= input.scrollDelta * camera.zoomStrength;
+        if (camera.viewWidth < 0.5f)
+            camera.viewWidth = 0.5f;
         input.scrollDelta = 0;
         if (morphInputIsKeyPressed(&input, GLFW_KEY_UP))
         {
@@ -96,7 +113,7 @@ int main(void)
             morphLog(LOG_MESSAGE, "Camera speed is now %f", camera.speed);
         }
 
-        morphVulkanDraw(&vk, window, &camera);
+        morphVulkanDraw(&vk, window, &camera, &scene);
     }
 
     //shutdown

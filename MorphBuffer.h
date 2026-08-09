@@ -21,4 +21,5 @@ typedef struct // ------- MORPH TEXTURE ------------
 } MorphTexture;
 
 bool morphTextureLoad(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool pool, VkQueue queue, const char* path, MorphTexture* out);
+bool morphTextureFromPixels(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool pool, VkQueue queue, u8* pixels, u32 width, u32 height, MorphTexture* out);
 void morphTextureDestroy(VkDevice device, MorphTexture* tex);

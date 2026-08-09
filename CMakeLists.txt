@@ -20,7 +20,8 @@ add_executable(MorphEngine
     MorphInput.c
     MorphCamera.c
     MorphTime.c
-    MorphScene.c)
+    MorphScene.c
+    MorphAtlas.c)
 target_compile_definitions(MorphEngine PRIVATE _CRT_SECURE_NO_WARNINGS)
 
 #directories

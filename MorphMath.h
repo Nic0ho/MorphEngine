@@ -3,7 +3,7 @@
 #include "MorphTypes.h"
 #include "math.h"
 
-//VEC2
+//VECTORS
 typedef struct { f32 x, y; } Vec2;
 typedef struct { f32 x, y, z; } Vec3;
 typedef struct { f32 x, y, z, w; } Vec4;
@@ -17,7 +17,20 @@ static inline Vec3 vec3(f32 x, f32 y, f32 z)
 static inline Vec4 vec4(f32 x, f32 y, f32 z, f32 w)
 { return (Vec4){x, y, z, w}; }
 
-//Vec3 operations
+//VEC2 OPERATIONS ------------
+//add
+static inline Vec2 vec2Add(Vec2 a, Vec2 b)
+{ return (Vec2){a.x + b.x, a.y + b.y}; }
+
+//substact
+static inline Vec2 vec2Sub(Vec2 a, Vec2 b)
+{ return (Vec2){a.x - b.x, a.y - b.y}; }
+
+//multiply
+static inline Vec2 vec2Scale(Vec2 v, f32 s)
+{ return (Vec2){v.x * s, v.y * s}; }
+
+//VEC3 OPERATIONS ------------
 //add
 static inline Vec3 vec3Add(Vec3 a, Vec3 b)
 { return (Vec3){a.x + b.x, a.y + b.y, a.z + b.z}; }
@@ -61,8 +74,6 @@ static inline Vec3 vec3Normalize(Vec3 v)
     if (len < 0.0001f) return (Vec3) {0, 0, 0};
     return vec3Scale(v, 1.0f/len);
 }
-
-
 
 //column-major 4x4 matrix
 typedef struct
