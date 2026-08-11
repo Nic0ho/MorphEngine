@@ -1,7 +1,7 @@
 #include "MorphBuffer.h"
 #include "MorphTypes.h"
 #include "MorphLog.h"
-#include "external/stb/stb_image.h"
+#include "stb_image.h"
 
 #include <stdint.h>
 #include <stdio.h>

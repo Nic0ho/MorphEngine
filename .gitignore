@@ -16,4 +16,4 @@ cmake-build-*/
 *.a
 .vscode/
 bin/
-*.ini
+imgui.ini

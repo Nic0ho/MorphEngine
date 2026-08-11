@@ -14,19 +14,22 @@ find_package(Vulkan REQUIRED)
 
 #executable
 add_executable(MorphEngine
-    #engine core
-    main.c
-    MorphVulkan.c
-    MorphBuffer.c
-    stb_image_impl.c
-    MorphImGui.cpp
-    MorphArena.c
-    MorphLog.c
-    MorphInput.c
-    MorphCamera.c
-    MorphTime.c
-    MorphScene.c
-    MorphAtlas.c
+    #core
+    src/core/main.c
+    src/core/MorphCamera.c
+    src/core/MorphInput.c
+    src/core/MorphScene.c
+    #rendering
+    src/rendering/MorphAtlas.c
+    src/rendering/MorphBuffer.c
+    src/rendering/MorphVulkan.c
+    #utils
+    src/utils/MorphArena.c
+    src/utils/MorphLog.c
+    src/utils/MorphTime.c
+    #wrappers
+    src/wrappers/MorphImGui.cpp
+    src/wrappers/MorphStbImage.c
 
     #imgui
     external/imgui/imgui.cpp
@@ -43,14 +46,17 @@ target_compile_definitions(MorphEngine PRIVATE
 
 #directories
 target_include_directories(MorphEngine PRIVATE
-    #glfw
-    external/glfw/include
-    #stb
-    external/stb
-    #imgui
-    external/imgui
-    #Vulkan
-    ${Vulkan_INCLUDE_DIRS}
+    # EXTERNAL -----------
+    external/glfw/include #glfw
+    external/stb #stb
+    external/imgui #imgui
+    ${Vulkan_INCLUDE_DIRS} #Vulkan
+    
+    # SOURCE   -----------
+    src/core #core
+    src/utils #utils
+    src/rendering #rendering
+    src/wrappers #wrappers
 )
 
 #libraries
