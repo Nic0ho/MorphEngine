@@ -43,6 +43,7 @@ typedef struct
     MorphAtlas                    atlas;
     VkDescriptorSetLayout         descriptorSetLayout;
     PFN_vkCmdPushDescriptorSetKHR fnPushDescriptors;
+    VkDescriptorPool              imguiDescriptorPool;
 } MorphVulkanContext;
 
 typedef struct

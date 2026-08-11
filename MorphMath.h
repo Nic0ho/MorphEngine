@@ -173,7 +173,7 @@ static inline Mat4 mat4Ortho(f32 left, f32 right, f32 bottom, f32 top, f32 nearZ
 {
     Mat4 m = {0};
     m.m[0][0] = 2.0f / (right - left);
-    m.m[1][1] = 2.0f / (top - bottom); //without flip for Vulkan
+    m.m[1][1] = -2.0f / (top - bottom); //with flip for Vulkan
     m.m[2][2] = 1.0f / (nearZ - farZ);
     m.m[3][0] = -(right + left) / (right - left);
     m.m[3][1] = (top + bottom) / (top - bottom);

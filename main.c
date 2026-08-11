@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "MorphAtlas.h"
+#include "MorphImGui.h"
 #include "MorphLog.h"
 #include "MorphScene.h"
 #include "MorphVulkan.h"
@@ -58,6 +59,14 @@ int main(void)
         return 1;
     }
 
+    //ImGui
+    if (!morphImGuiInit(&vk, window))
+    {
+        morphLog(LOG_ERROR, "ImGui init fail!");
+        return 1;
+    }
+    morphLog(LOG_MESSAGE, "ImGui Loaded");
+
     // Scene
     Entities scene = {0};
     
@@ -80,14 +89,17 @@ int main(void)
 
         morphInputUpdate(&input, window);
         
+        scene.velocity[player.index] = (Vec2){0}; 
+
         if (morphInputIsKeyDown(&input, GLFW_KEY_D))
-            camera.position.x += (f32)timeState.deltaTime * camera.speed;
+            scene.velocity[player.index].x += 2;
         if (morphInputIsKeyDown(&input, GLFW_KEY_A))
-            camera.position.x -= (f32)timeState.deltaTime * camera.speed;
+            scene.velocity[player.index].x -= 2;
         if (morphInputIsKeyDown(&input, GLFW_KEY_W))
-            camera.position.y += (f32)timeState.deltaTime * camera.speed;
+            scene.velocity[player.index].y += 2;
         if (morphInputIsKeyDown(&input, GLFW_KEY_S))
-            camera.position.y -= (f32)timeState.deltaTime * camera.speed;
+            scene.velocity[player.index].y -= 2;
+
         camera.viewWidth -= input.scrollDelta * camera.zoomStrength;
         if (camera.viewWidth < 0.5f)
             camera.viewWidth = 0.5f;
@@ -102,21 +114,16 @@ int main(void)
             camera.zoomStrength -= 0.05f;
             morphLog(LOG_MESSAGE, "Zoom strength is now %f", camera.zoomStrength);
         }
-        if (morphInputIsKeyPressed(&input, GLFW_KEY_LEFT))
-        {
-            camera.speed += 0.5f;
-            morphLog(LOG_MESSAGE, "Camera speed is now %f", camera.speed);
-        }
-        if (morphInputIsKeyPressed(&input, GLFW_KEY_RIGHT))
-        {
-            camera.speed -= 0.5f;
-            morphLog(LOG_MESSAGE, "Camera speed is now %f", camera.speed);
-        }
+
+        morphSceneUpdateMovement(&scene, (f32)timeState.deltaTime);
+
+        morphImGuiNewFrame();
 
         morphVulkanDraw(&vk, window, &camera, &scene);
     }
 
     //shutdown
+    morphImGuiShutdown(&vk);
     morphVulkanShutdown(&vk);
     glfwDestroyWindow(window);
     glfwTerminate();

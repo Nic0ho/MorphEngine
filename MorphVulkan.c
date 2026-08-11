@@ -1,6 +1,7 @@
 #include "MorphVulkan.h"
 #include "MorphArena.h"
 #include "MorphCamera.h"
+#include "MorphImGui.h"
 #include "MorphLog.h"
 #include "MorphMath.h"
 #include "MorphScene.h"
@@ -22,10 +23,10 @@ typedef struct
 
 static const Vertex VERTICES[] =
 {
-    {{ 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
-    {{ 0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-    {{-0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}}
+    {{ 0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
+    {{ 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+    {{-0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+    {{-0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}}
 };
 
 static const u16 INDICES[] = { 0, 1, 2, 0, 2, 3 };
@@ -304,6 +305,8 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex, MorphCa
         vkCmdDrawIndexed(cmd, ctx->indexCount, 1, 0, 0, 0);
     }
     
+    morphImGuiRender(cmd);
+
     vkCmdEndRendering(cmd);
 
     //transition: COLOR_ATTACHMENT -> PRESENT_SRC (ready to show om screen)
