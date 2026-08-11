@@ -116,10 +116,16 @@ int main(void)
         }
 
         morphSceneUpdateMovement(&scene, (f32)timeState.deltaTime);
-
+        
+    #ifdef MORPH_EDITOR
         morphImGuiNewFrame();
-
+        morphImGuiBeginDockspace();
+        morphImGuiBeginWindow();
+        morphImGuiEndWindow();
         morphVulkanDraw(&vk, window, &camera, &scene);
+    #else
+        morphVulkanDraw(&vk, window, &camera, &scene);
+    #endif
     }
 
     //shutdown

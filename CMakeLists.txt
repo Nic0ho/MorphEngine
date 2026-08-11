@@ -33,10 +33,13 @@ add_executable(MorphEngine
     external/imgui/imgui_draw.cpp
     external/imgui/imgui_widgets.cpp
     external/imgui/imgui_tables.cpp
-    external/imgui/imgui_demo.cpp
     external/imgui/backends/imgui_impl_glfw.cpp
     external/imgui/backends/imgui_impl_vulkan.cpp)
-target_compile_definitions(MorphEngine PRIVATE _CRT_SECURE_NO_WARNINGS)
+
+target_compile_definitions(MorphEngine PRIVATE 
+    _CRT_SECURE_NO_WARNINGS
+    MORPH_EDITOR
+)
 
 #directories
 target_include_directories(MorphEngine PRIVATE

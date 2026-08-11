@@ -305,7 +305,9 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex, MorphCa
         vkCmdDrawIndexed(cmd, ctx->indexCount, 1, 0, 0, 0);
     }
     
+#ifdef MORPH_EDITOR
     morphImGuiRender(cmd);
+#endif
 
     vkCmdEndRendering(cmd);
 
@@ -953,6 +955,11 @@ void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window, MorphCamera* c
     {
         if (!recreateSwapchain(ctx, window))
             morphLog(LOG_ERROR, "Failed to recreate swapchain!");
+
+    #ifdef MORPH_EDITOR
+        morphImGuiEndFrame();       
+    #endif
+        
         return;
     }
     else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)

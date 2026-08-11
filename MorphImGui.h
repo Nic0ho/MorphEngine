@@ -4,15 +4,20 @@
 #include <GLFW/glfw3.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 bool morphImGuiInit(MorphVulkanContext* ctx, GLFWwindow* window);
 void morphImGuiNewFrame();
+void morphImGuiEndFrame();
 void morphImGuiRender(VkCommandBuffer cmd);
 void morphImGuiShutdown(MorphVulkanContext* ctx);
 
-void morphImGuiShowDemo();
+//one line wrappers
+void morphImGuiBeginDockspace();
+void morphImGuiBeginWindow();
+void morphImGuiEndWindow();
 
 #ifdef __cplusplus
 }

@@ -23,6 +23,11 @@ bool morphImGuiInit(MorphVulkanContext *ctx, GLFWwindow *window)
 
     ImGui::CreateContext();
 
+    ImGuiIO& io = ImGui::GetIO();
+
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+
     ImGui_ImplGlfw_InitForVulkan(window, true);
 
     VkPipelineRenderingCreateInfoKHR pipelineRenderingInfo = {};
@@ -53,8 +58,12 @@ void morphImGuiNewFrame()
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+}
 
-    return;
+void morphImGuiEndFrame()
+{
+    ImGui::EndFrame();
+    ImGui::UpdatePlatformWindows();
 }
 
 void morphImGuiRender(VkCommandBuffer cmd)
@@ -62,7 +71,8 @@ void morphImGuiRender(VkCommandBuffer cmd)
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
 
-    return;
+    ImGui::UpdatePlatformWindows();
+    ImGui::RenderPlatformWindowsDefault();
 }
 
 void morphImGuiShutdown(MorphVulkanContext* ctx)
@@ -72,13 +82,15 @@ void morphImGuiShutdown(MorphVulkanContext* ctx)
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
     vkDestroyDescriptorPool(ctx->logicalDevice, ctx->imguiDescriptorPool, nullptr);
-
-    return;
 }
 
-void morphImGuiShowDemo()
-{
-    ImGui::ShowDemoWindow(NULL);
-}
+void morphImGuiBeginDockspace()
+{ ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode); }
+
+void morphImGuiBeginWindow()
+{ ImGui::Begin("Test"); }
+
+void morphImGuiEndWindow()
+{ ImGui::End(); }
 
 }
