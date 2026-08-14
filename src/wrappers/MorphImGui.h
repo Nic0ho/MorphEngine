@@ -22,10 +22,10 @@ void morphImGuiShutdown(MorphVulkanContext* ctx);
 void morphImGuiDrawOutput(MorphOutputConsoleBuffer* buffer);
 void morphImGuiDrawContentDrawer();
 void morphImGuiDrawTools();
-void morphImGuiDrawOutliner();
-void morphImGuiDrawDetails();
+void morphImGuiDrawOutliner(Entities* scene, MorphEditor* editor);
+void morphImGuiDrawDetails(Entities* scene, MorphEditor* editor);
 void morphImGuiDrawViewport(VkDescriptorSet descriptorSet, u32 texWidth, u32 texHeight);
-void morphImGuiDrawMenuBar(MorphEditor* editor);
+void morphImGuiDrawMenuBar(MorphEditor* editor, f32 deltaTime);
 
 //one line wrappers
 void morphImGuiBeginDockspace();

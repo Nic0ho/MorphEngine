@@ -1,5 +1,6 @@
 #include "MorphImGui.h"
 #include "MorphLog.h"
+#include "MorphScene.h"
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
@@ -120,14 +121,47 @@ void morphImGuiDrawTools()
 
 }
 
-void morphImGuiDrawOutliner()
+static const char* entityTypeName(EntityType type)
 {
-
+    switch(type)
+    {
+        case ENTITY_PLAYER: return "Player";
+        case ENTITY_BLOCK: return "Block";
+        default: return "Unkrown";
+    }
 }
 
-void morphImGuiDrawDetails()
+void morphImGuiDrawOutliner(Entities* scene, MorphEditor* editor)
 {
+    for(u32 i = 0; i < scene->count; i++)
+    {
+        bool isSelected = editor->hasSelection && editor->selectedEntity.index == i;
 
+        ImGui::PushID(i);
+        if (ImGui::Selectable(entityTypeName(scene->type[i]), isSelected))
+        {
+            editor->selectedEntity = (EntityHandle){ i, scene->generation[i] };
+            editor->hasSelection = true;
+        }
+        ImGui::PopID();
+    }
+}
+
+void morphImGuiDrawDetails(Entities* scene, MorphEditor* editor)
+{
+    if (!editor->hasSelection) return;
+
+    u32 i = editor->selectedEntity.index;
+
+    ImGui::Text("Type: %s", entityTypeName(scene->type[i]));
+    ImGui::Text("Position: %.2f, %.2f", scene->position[i].x, scene->position[i].y);
+    ImGui::Text("Size: %.2f, %.2f", scene->size[i].x, scene->size[i].y);
+    ImGui::Text("Velocity: %.2f, %.2f", scene->velocity[i].x, scene->velocity[i].y);
+    ImGui::Text("Enabled components:");
+    ImGui::Text(" Position: %s", (scene->entityFlags[i] & COMPONENT_POSITION) ? "enabled" : "disabled");
+    ImGui::Text(" Velocity: %s", (scene->entityFlags[i] & COMPONENT_VELOCITY) ? "enabled" : "disabled");
+    ImGui::Text(" Texture: %s", (scene->entityFlags[i] & COMPONENT_TEXTURE)  ? "enabled" : "disabled");
+    ImGui::Text(" Size: %s", (scene->entityFlags[i] & COMPONENT_SIZE) ? "enabled" : "disabled");
 }
 
 void morphImGuiDrawViewport(VkDescriptorSet descriptorSet, u32 texWidth, u32 texHeight)
@@ -136,7 +170,7 @@ void morphImGuiDrawViewport(VkDescriptorSet descriptorSet, u32 texWidth, u32 tex
     ImGui::Image((ImTextureID)descriptorSet, size);
 }
 
-void morphImGuiDrawMenuBar(MorphEditor *editor)
+void morphImGuiDrawMenuBar(MorphEditor *editor, f32 deltaTime)
 {
     if (ImGui::BeginMainMenuBar())
     {
@@ -167,6 +201,13 @@ void morphImGuiDrawMenuBar(MorphEditor *editor)
             ImGui::MenuItem("Build", NULL, nullptr);
             ImGui::EndMenu();
         }
+
+        char fpsText[32];
+        snprintf(fpsText, sizeof(fpsText), "%.1f FPS  (%.2f ms)", 1.0f / deltaTime, deltaTime * 1000.0f);
+        f32 textWidth = ImGui::CalcTextSize(fpsText).x;
+        ImGui::SetCursorPosX(ImGui::GetWindowWidth() - textWidth - 10.0f);
+        ImGui::Text("%s", fpsText);
+
         ImGui::EndMainMenuBar();
     }
 }

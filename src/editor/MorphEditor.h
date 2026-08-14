@@ -5,6 +5,7 @@
 #include "MorphTypes.h"
 #include "MorphMath.h"
 #include "MorphCamera.h"
+#include "MorphScene.h"
 
 typedef struct
 {
@@ -23,6 +24,10 @@ typedef struct
     f32 resizeTimer;
     bool viewportNeedsResize;
     bool viewportCursorFocused;
+
+    //outliner
+    EntityHandle selectedEntity;
+    bool hasSelection;
 } MorphEditor;
 
 void morphEditorUpdateInput(MorphEditor* editor, MorphInput* input, MorphCamera* editorCamera, f32 deltaTime);

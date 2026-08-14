@@ -41,6 +41,7 @@ int main(void)
     morphLogSetOutput(&editor.output);
     editor.showOutput = true;
     editor.showOutliner = true;
+    editor.showDetails = true;
     editor.showTools = true;
     editor.showContentDrawer = true;
     editor.showViewport = true;
@@ -112,7 +113,7 @@ int main(void)
     #ifdef MORPH_EDITOR
         morphImGuiNewFrame();
         morphImGuiBeginDockspace();
-        morphImGuiDrawMenuBar(&editor);
+        morphImGuiDrawMenuBar(&editor, (f32)timeState.deltaTime);
         if (editor.showOutput)
         {
             morphImGuiBeginWindow("Output");
@@ -134,13 +135,13 @@ int main(void)
         if (editor.showOutliner)
         {
             morphImGuiBeginWindow("Outliner");
-            morphImGuiDrawOutliner();
+            morphImGuiDrawOutliner(&scene, &editor);
             morphImGuiEndWindow();
         }
         if (editor.showDetails)
         {
             morphImGuiBeginWindow("Details");
-            morphImGuiDrawDetails();
+            morphImGuiDrawDetails(&scene, &editor);
             morphImGuiEndWindow();
         }
         if (editor.showViewport)
