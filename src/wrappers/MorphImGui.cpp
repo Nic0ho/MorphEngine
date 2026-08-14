@@ -1,7 +1,9 @@
 #include "MorphImGui.h"
+#include "MorphLog.h"
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
+#include "imgui_internal.h"
 
 
 extern "C"
@@ -87,10 +89,94 @@ void morphImGuiShutdown(MorphVulkanContext* ctx)
 void morphImGuiBeginDockspace()
 { ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode); }
 
-void morphImGuiBeginWindow()
-{ ImGui::Begin("Test"); }
+void morphImGuiBeginWindow(const char* name)
+{ ImGui::Begin(name); }
 
 void morphImGuiEndWindow()
 { ImGui::End(); }
+
+VkDescriptorSet morphImGuiRegisterTexture(VkSampler sampler, VkImageView view)
+{ return ImGui_ImplVulkan_AddTexture(sampler, view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL); }
+
+void morphImGuiDrawOutput(MorphOutputConsoleBuffer* buffer)
+{
+    bool full = buffer->count == MAX_CONSOLE_OUTPUT_LINES;
+    u32 start = full ? buffer->writeIndex : 0;
+
+    for (u32 i = 0; i < buffer->count; i++)
+    {
+        u32 index = (start + i) % MAX_CONSOLE_OUTPUT_LINES;
+        ImGui::TextUnformatted(buffer->messages[index]);
+    }
+}
+
+void morphImGuiDrawContentDrawer()
+{
+    
+}
+
+void morphImGuiDrawTools()
+{
+
+}
+
+void morphImGuiDrawOutliner()
+{
+
+}
+
+void morphImGuiDrawDetails()
+{
+
+}
+
+void morphImGuiDrawViewport(VkDescriptorSet descriptorSet, u32 texWidth, u32 texHeight)
+{
+    ImVec2 size = ImGui::GetContentRegionAvail();
+    ImGui::Image((ImTextureID)descriptorSet, size);
+}
+
+void morphImGuiDrawMenuBar(MorphEditor *editor)
+{
+    if (ImGui::BeginMainMenuBar())
+    {
+        if (ImGui::BeginMenu("File"))
+        {
+            ImGui::MenuItem("Open HUB", NULL, nullptr);
+            ImGui::MenuItem("Import", NULL, nullptr);
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Edit"))
+        {
+            ImGui::MenuItem("Project settings", NULL, nullptr);
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Window"))
+        {
+            ImGui::MenuItem("Output", NULL, &editor->showOutput);
+            ImGui::MenuItem("Content drawer", NULL, &editor->showContentDrawer);
+            ImGui::MenuItem("Tools", NULL, &editor->showTools);
+            ImGui::MenuItem("Outliner", NULL, &editor->showOutliner);
+            ImGui::MenuItem("Details", NULL, &editor->showDetails);
+            ImGui::MenuItem("Viewport", NULL, &editor->showViewport);
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Build"))
+        {
+            ImGui::MenuItem("Build preferences", NULL, nullptr);
+            ImGui::MenuItem("Build", NULL, nullptr);
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
+    }
+}
+
+Vec2 morphImGuiGetViewportSize()
+{
+    ImVec2 size = ImGui::GetContentRegionAvail();
+    Vec2 result = { (f32)size.x, (f32)size.y };
+
+    return result;
+}
 
 }

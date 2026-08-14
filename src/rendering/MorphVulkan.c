@@ -1,5 +1,6 @@
 #include "MorphVulkan.h"
 #include "MorphArena.h"
+#include "MorphBuffer.h"
 #include "MorphCamera.h"
 #include "MorphImGui.h"
 #include "MorphLog.h"
@@ -202,61 +203,10 @@ static void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout ol
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
-static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex, MorphCamera* camera, Entities* scene)
+static void drawScene(VkCommandBuffer cmd, MorphVulkanContext* ctx, MorphCamera* camera, Entities* scene)
 {
-    VkCommandBuffer cmd = ctx->commandBuffers[ctx->currentFrame];
-
-    VkCommandBufferBeginInfo beginInfo = {0};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    vkBeginCommandBuffer(cmd, &beginInfo);
-
-    //transition: UNDEFINED -> COLOR_ATTACHMENT (ready to render into)
-    transitionImage(cmd, ctx->swapchainImages[imageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-    //begin dynamic rendering
-    VkClearValue clearColor = {{{ 0.1f, 0.1f, 0.15f, 1.0f}}}; //black
-
-    VkRenderingAttachmentInfo colorAttachment = {0};
-    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    colorAttachment.imageView = ctx->swapchainImageViews[imageIndex];
-    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; //clear on start
-    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; //keep after rendering
-    colorAttachment.clearValue = clearColor;
-
-    VkRenderingInfo renderingInfo = {0};
-    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    renderingInfo.renderArea.offset = (VkOffset2D){0, 0};
-    renderingInfo.renderArea.extent = ctx->swapchainExtent;
-    renderingInfo.layerCount = 1;
-    renderingInfo.colorAttachmentCount = 1;
-    renderingInfo.pColorAttachments = &colorAttachment;
-
-    vkCmdBeginRendering(cmd, &renderingInfo);
-
-    //bind pipeline
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->graphicsPipeline);    
-
-    //set dynamic viewport
-    VkViewport viewport = {0};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = (f32)ctx->swapchainExtent.width;
-    viewport.height = (f32)ctx->swapchainExtent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-    //set dynamic scissor
-    VkRect2D scissor = {0};
-    scissor.offset = (VkOffset2D){0, 0};
-    scissor.extent = ctx->swapchainExtent;
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->graphicsPipeline);
     
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
-
     //bind vertex buffer
     VkBuffer vertexBuffers[] = {ctx->vertexBuffer.buffer};
     VkDeviceSize offsets[] = {0};
@@ -266,7 +216,11 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex, MorphCa
     vkCmdBindIndexBuffer(cmd, ctx->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT16);
 
     //push transform directly into command buffer
+#ifdef MORPH_EDITOR
+    f32 aspectRatio = (f32)ctx->viewportTexture.width / (f32)ctx->viewportTexture.height;
+#else
     f32 aspectRatio = (f32)ctx->swapchainExtent.width / (f32)ctx->swapchainExtent.height;
+#endif
 
     Mat4 viewProj = morphCameraGetViewProjection(camera, aspectRatio);
 
@@ -304,14 +258,114 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex, MorphCa
         vkCmdPushConstants(cmd, ctx->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstants), &pc);
         vkCmdDrawIndexed(cmd, ctx->indexCount, 1, 0, 0, 0);
     }
-    
-#ifdef MORPH_EDITOR
-    morphImGuiRender(cmd);
-#endif
+}
 
+static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex, MorphCamera* camera, Entities* scene)
+{
+    VkCommandBuffer cmd = ctx->commandBuffers[ctx->currentFrame];
+
+    VkCommandBufferBeginInfo beginInfo = {0};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    if (vkBeginCommandBuffer(cmd, &beginInfo) != VK_SUCCESS)
+    {
+        morphLog(LOG_ERROR, "Failed to begin recording command buffer!");
+        return;
+    }
+
+    VkClearValue clearColor = {{{ 0.1f, 0.1f, 0.15f, 1.0f }}};
+
+#ifdef MORPH_EDITOR
+    transitionImage(cmd, ctx->viewportTexture.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    VkRenderingAttachmentInfo colorAttachment = {0};
+    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    colorAttachment.imageView = ctx->viewportTexture.view;
+    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.clearValue = clearColor;
+
+    VkRenderingInfo renderingInfo = {0};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderingInfo.renderArea.extent = (VkExtent2D){ctx->viewportTexture.width, ctx->viewportTexture.height};
+    renderingInfo.layerCount = 1;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachments = &colorAttachment;
+
+    vkCmdBeginRendering(cmd, &renderingInfo);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->graphicsPipeline);
+
+    VkViewport viewport = {0};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = (f32)ctx->viewportTexture.width;
+    viewport.height = (f32)ctx->viewportTexture.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor = {0};
+    scissor.offset = (VkOffset2D){0, 0};
+    scissor.extent = (VkExtent2D){ctx->viewportTexture.width, ctx->viewportTexture.height};
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    drawScene(cmd, ctx, camera, scene);
     vkCmdEndRendering(cmd);
 
-    //transition: COLOR_ATTACHMENT -> PRESENT_SRC (ready to show om screen)
+    transitionImage(cmd, ctx->viewportTexture.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    transitionImage(cmd, ctx->swapchainImages[imageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    colorAttachment.imageView = ctx->swapchainImageViews[imageIndex];
+    colorAttachment.clearValue = (VkClearValue){{{ 0.0f, 0.0f, 0.0f, 1.0f }}};
+    renderingInfo.renderArea.extent = ctx->swapchainExtent;
+
+    vkCmdBeginRendering(cmd, &renderingInfo);
+    morphImGuiRender(cmd);
+    vkCmdEndRendering(cmd);
+#else
+    transitionImage(cmd, ctx->swapchainImages[imageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    VkRenderingAttachmentInfo colorAttachment = {0};
+    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    colorAttachment.imageView = ctx->swapchainImageViews[imageIndex];
+    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.clearValue = clearColor;
+
+    VkRenderingInfo renderingInfo = {0};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderingInfo.renderArea.offset = (VkOffset2D){0, 0};
+    renderingInfo.renderArea.extent = ctx->swapchainExtent;
+    renderingInfo.layerCount = 1;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachments = &colorAttachment;
+
+    vkCmdBeginRendering(cmd, &renderingInfo);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->graphicsPipeline);
+
+    VkViewport viewport = {0};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = (f32)ctx->swapchainExtent.width;
+    viewport.height = (f32)ctx->swapchainExtent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor = {0};
+    scissor.offset = (VkOffset2D){0, 0};
+    scissor.extent = ctx->swapchainExtent;
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    drawScene(cmd, ctx, camera, scene);
+
+    vkCmdEndRendering(cmd);
+#endif
     transitionImage(cmd, ctx->swapchainImages[imageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     vkEndCommandBuffer(cmd);
@@ -798,7 +852,7 @@ static bool createGraphicsPipeline(MorphVulkanContext* ctx)
     colorBlendAttachment.colorBlendOp        = VK_BLEND_OP_ADD;
     //alpha
     colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     colorBlendAttachment.alphaBlendOp        = VK_BLEND_OP_ADD;
 
     VkPipelineColorBlendStateCreateInfo colorBlending = {0};
@@ -838,11 +892,19 @@ static bool createGraphicsPipeline(MorphVulkanContext* ctx)
         return false;
     }
 
+    VkFormat pipelineFormat;
+
+#ifdef MORPH_EDITOR
+    pipelineFormat = ctx->swapchainFormat;
+#else
+    pipelineFormat = ctx->swapchainFormat;
+#endif
+
     //dynamic rendering info - replaces render pass object. decsribes what format the collor attachment will have
     VkPipelineRenderingCreateInfo renderingInfo = {0};
     renderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     renderingInfo.colorAttachmentCount = 1;
-    renderingInfo.pColorAttachmentFormats = &ctx->swapchainFormat;
+    renderingInfo.pColorAttachmentFormats = &pipelineFormat;
 
     //final pipeline createion
     VkGraphicsPipelineCreateInfo pipelineInfo = {0};
@@ -939,6 +1001,13 @@ static bool recreateSwapchain(MorphVulkanContext* ctx, GLFWwindow* window)
     morphLog(LOG_MESSAGE, "Swapchain recreated (%ux%u)", ctx->swapchainExtent.width, ctx->swapchainExtent.height);
     
     return true;
+}
+
+void morphVulkanResizeViewport(MorphVulkanContext* ctx, u32 width, u32 height)
+{
+    vkDeviceWaitIdle(ctx->logicalDevice);
+    morphTextureDestroy(ctx->logicalDevice, &ctx->viewportTexture);
+    morphTextureCreateRenderTarget(ctx->logicalDevice, ctx->physicalDevice, ctx->commandPool, ctx->graphicsQueue, width, height, &ctx->viewportTexture);
 }
 
 void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window, MorphCamera* camera, Entities* scene)
@@ -1109,6 +1178,13 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
         !createIndexBuffer(ctx))            //create index buffer
         return false;
 
+    // render target
+    if (!morphTextureCreateRenderTarget(ctx->logicalDevice, ctx->physicalDevice, ctx->commandPool, ctx->graphicsQueue, 1920, 1080, &ctx->viewportTexture))
+    {
+        morphLog(LOG_ERROR, "Failed to create viewport render target!");
+        return false;
+    }
+    
     return true;
 }
 
@@ -1143,6 +1219,7 @@ void morphVulkanShutdown(MorphVulkanContext *ctx)
 
     //texture shutdown
     morphAtlasDestroy(&ctx->atlas, ctx->logicalDevice);
+    morphTextureDestroy(ctx->logicalDevice, &ctx->viewportTexture);
     
     //graphics pipline shutdown
     vkDestroyPipeline(ctx->logicalDevice, ctx->graphicsPipeline, NULL);

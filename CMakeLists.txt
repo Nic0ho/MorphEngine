@@ -19,6 +19,8 @@ add_executable(MorphEngine
     src/core/MorphCamera.c
     src/core/MorphInput.c
     src/core/MorphScene.c
+    #editor
+    src/editor/MorphEditor.c
     #rendering
     src/rendering/MorphAtlas.c
     src/rendering/MorphBuffer.c
@@ -39,10 +41,11 @@ add_executable(MorphEngine
     external/imgui/backends/imgui_impl_glfw.cpp
     external/imgui/backends/imgui_impl_vulkan.cpp)
 
-target_compile_definitions(MorphEngine PRIVATE 
-    _CRT_SECURE_NO_WARNINGS
-    MORPH_EDITOR
-)
+option(MORPH_EDITOR "Build with editor" ON)
+
+if(MORPH_EDITOR)
+    target_compile_definitions(MorphEngine PRIVATE _CRT_SECURE_NO_WARNINGS MORPH_EDITOR)
+endif()
 
 #directories
 target_include_directories(MorphEngine PRIVATE
@@ -53,10 +56,11 @@ target_include_directories(MorphEngine PRIVATE
     ${Vulkan_INCLUDE_DIRS} #Vulkan
     
     # SOURCE   -----------
-    src/core #core
-    src/utils #utils
+    src/core      #core
+    src/editor    #editor
+    src/utils     #utils
     src/rendering #rendering
-    src/wrappers #wrappers
+    src/wrappers  #wrappers
 )
 
 #libraries

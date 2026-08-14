@@ -8,6 +8,7 @@
 #include "MorphInput.h"
 #include "MorphCamera.h"
 #include "MorphTime.h"
+#include "MorphEditor.h"
 
 #include <GLFW/glfw3.h>
 
@@ -35,6 +36,18 @@ int main(void)
     }
 
     //INITIALS
+    //Editor
+    MorphEditor editor =  {0};
+    morphLogSetOutput(&editor.output);
+    editor.showOutput = true;
+    editor.showOutliner = true;
+    editor.showTools = true;
+    editor.showContentDrawer = true;
+    editor.showViewport = true;
+
+    Vec2 viewportSize = {0};
+    morphLog(LOG_MESSAGE, "Editor initialized");
+
     //Time
     MorphTime timeState = {0};
 
@@ -65,6 +78,7 @@ int main(void)
         morphLog(LOG_ERROR, "ImGui init fail!");
         return 1;
     }
+    vk.viewportDescriptorSet = morphImGuiRegisterTexture(vk.viewportTexture.sampler, vk.viewportTexture.view);
     morphLog(LOG_MESSAGE, "ImGui Loaded");
 
     // Scene
@@ -120,9 +134,65 @@ int main(void)
     #ifdef MORPH_EDITOR
         morphImGuiNewFrame();
         morphImGuiBeginDockspace();
-        morphImGuiBeginWindow();
-        morphImGuiEndWindow();
+        morphImGuiDrawMenuBar(&editor);
+        if (editor.showOutput)
+        {
+            morphImGuiBeginWindow("Output");
+            morphImGuiDrawOutput(&editor.output);
+            morphImGuiEndWindow();
+        }
+        if (editor.showContentDrawer)
+        {
+            morphImGuiBeginWindow("Content drawer");
+            morphImGuiDrawContentDrawer();
+            morphImGuiEndWindow();
+        }
+        if (editor.showTools)
+        {
+            morphImGuiBeginWindow("Tools");
+            morphImGuiDrawTools();
+            morphImGuiEndWindow();
+        }
+        if (editor.showOutliner)
+        {
+            morphImGuiBeginWindow("Outliner");
+            morphImGuiDrawOutliner();
+            morphImGuiEndWindow();
+        }
+        if (editor.showDetails)
+        {
+            morphImGuiBeginWindow("Details");
+            morphImGuiDrawDetails();
+            morphImGuiEndWindow();
+        }
+        if (editor.showViewport)
+        {
+            morphImGuiBeginWindow("Viewport");
+            viewportSize = morphImGuiGetViewportSize();
+
+            if (viewportSize.x != editor.lastViewportSize.x || viewportSize.y != editor.lastViewportSize.y)
+            {
+                editor.lastViewportSize = viewportSize;
+                editor.resizeTimer = 0.0f;
+                editor.viewportNeedsResize = true;
+            }
+            if (editor.viewportNeedsResize)
+            {
+                editor.resizeTimer += (f32)timeState.deltaTime;
+                if (editor.resizeTimer > 0.05f && viewportSize.x > 0 && viewportSize.y > 0)
+                {
+                    morphVulkanResizeViewport(&vk, (u32)viewportSize.x, (u32)viewportSize.y);
+                    vk.viewportDescriptorSet = morphImGuiRegisterTexture(vk.viewportTexture.sampler, vk.viewportTexture.view);
+                    editor.viewportNeedsResize = false;
+                    editor.resizeTimer = 0.0f;
+                }
+            }
+            
+            morphImGuiDrawViewport(vk.viewportDescriptorSet, vk.viewportTexture.width, vk.viewportTexture.height);
+            morphImGuiEndWindow();
+        }
         morphVulkanDraw(&vk, window, &camera, &scene);
+        
     #else
         morphVulkanDraw(&vk, window, &camera, &scene);
     #endif

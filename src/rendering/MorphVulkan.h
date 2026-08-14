@@ -44,6 +44,8 @@ typedef struct
     VkDescriptorSetLayout         descriptorSetLayout;
     PFN_vkCmdPushDescriptorSetKHR fnPushDescriptors;
     VkDescriptorPool              imguiDescriptorPool;
+    MorphTexture                  viewportTexture;
+    VkDescriptorSet               viewportDescriptorSet;
 } MorphVulkanContext;
 
 typedef struct
@@ -56,3 +58,4 @@ typedef struct
 bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window);
 void morphVulkanShutdown(MorphVulkanContext* ctx);
 void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window, MorphCamera* camera, Entities* scene);
+void morphVulkanResizeViewport(MorphVulkanContext* ctx, u32 width, u32 height);
