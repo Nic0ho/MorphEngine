@@ -179,4 +179,7 @@ Vec2 morphImGuiGetViewportSize()
     return result;
 }
 
+bool morphImGuiGetViewportFocusedCursor()
+{ return ImGui::IsWindowHovered(); }
+
 }

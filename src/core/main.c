@@ -57,10 +57,10 @@ int main(void)
     glfwSetScrollCallback(window, morphScrollCallback);
 
     // Camera
-    MorphCamera camera ={0};
+    MorphCamera camera = {0};
     camera.viewWidth = 5.0f;
     camera.zoomStrength = 0.25f;
-    camera.speed = 3.0f;
+    camera.sensitivity = 0.015f;
 
     //Vulkan
     MorphVulkanContext vk = {0};
@@ -105,29 +105,7 @@ int main(void)
         
         scene.velocity[player.index] = (Vec2){0}; 
 
-        if (morphInputIsKeyDown(&input, GLFW_KEY_D))
-            scene.velocity[player.index].x += 2;
-        if (morphInputIsKeyDown(&input, GLFW_KEY_A))
-            scene.velocity[player.index].x -= 2;
-        if (morphInputIsKeyDown(&input, GLFW_KEY_W))
-            scene.velocity[player.index].y += 2;
-        if (morphInputIsKeyDown(&input, GLFW_KEY_S))
-            scene.velocity[player.index].y -= 2;
-
-        camera.viewWidth -= input.scrollDelta * camera.zoomStrength;
-        if (camera.viewWidth < 0.5f)
-            camera.viewWidth = 0.5f;
-        input.scrollDelta = 0;
-        if (morphInputIsKeyPressed(&input, GLFW_KEY_UP))
-        {
-            camera.zoomStrength += 0.05f;
-            morphLog(LOG_MESSAGE, "Zoom strength is now %f", camera.zoomStrength);
-        }
-        if (morphInputIsKeyPressed(&input, GLFW_KEY_DOWN))
-        {
-            camera.zoomStrength -= 0.05f;
-            morphLog(LOG_MESSAGE, "Zoom strength is now %f", camera.zoomStrength);
-        }
+        morphEditorUpdateInput(&editor, &input, &camera, (f32)timeState.deltaTime);
 
         morphSceneUpdateMovement(&scene, (f32)timeState.deltaTime);
         
@@ -189,6 +167,8 @@ int main(void)
             }
             
             morphImGuiDrawViewport(vk.viewportDescriptorSet, vk.viewportTexture.width, vk.viewportTexture.height);
+            editor.viewportCursorFocused = morphImGuiGetViewportFocusedCursor();
+
             morphImGuiEndWindow();
         }
         morphVulkanDraw(&vk, window, &camera, &scene);

@@ -32,6 +32,7 @@ void morphImGuiBeginDockspace();
 void morphImGuiBeginWindow(const char* name);
 void morphImGuiEndWindow();
 VkDescriptorSet morphImGuiRegisterTexture(VkSampler sampler, VkImageView view);
+bool morphImGuiGetViewportFocusedCursor();
 
 //getters
 Vec2 morphImGuiGetViewportSize();
