@@ -8,6 +8,7 @@
 #include "MorphScene.h"
 
 #include <GLFW/glfw3.h>
+#include <windows.h>
 
 #include <stdint.h>
 #include <stdio.h>
@@ -94,6 +95,49 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback
         morphLog(LOG_MESSAGE, "%s\n", data->pMessage);
 
     return VK_FALSE; 
+}
+
+static void compileShadersIfNeeded(void)
+{
+    const char* extensions[] = { "*.vert", "*.frag" };
+
+    for (int i = 0; i < LEN(extensions); i++)
+    {
+        char searchPath[256];
+        snprintf(searchPath, sizeof(searchPath), "shaders\\%s", extensions[i]);
+        
+        WIN32_FIND_DATAA findData;
+        HANDLE hFind = FindFirstFileA(searchPath, &findData);
+        if (hFind == INVALID_HANDLE_VALUE) continue;
+
+        do
+        {
+            char srcPath[256];
+            snprintf(srcPath, sizeof(srcPath), "shaders\\%s", findData.cFileName);
+
+            char spvPath[256];
+            snprintf(spvPath, sizeof(spvPath), "%s.spv", srcPath);
+        #ifdef MORPH_EDITOR
+            char cmd[512];
+            snprintf(cmd, sizeof(cmd), "tools\\glslc.exe %s -o %s", srcPath, spvPath);
+            morphLog(LOG_MESSAGE, "Compiling: %s", srcPath);
+            system(cmd);
+        #else
+            FILE* spvFile = fopen(spvPath, "rb");
+            if (!spvFile)
+            {
+                char cmd[512];
+                snprintf(cmd, sizeof(cmd), "tools\\glslc.exe %s -o %s", srcPath, spvPath);
+                morphLog(LOG_MESSAGE, "Compiling: %s", srcPath);
+                system(cmd);
+            }
+            else
+            { fclose(spvFile); }
+        #endif
+        } while (FindNextFileA(hFind, &findData));
+        
+        FindClose(hFind);
+    }
 }
 
 static VkShaderModule loadShader(VkDevice device, const char* path)
@@ -1082,6 +1126,8 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
         morphLog(LOG_WARNING, "Validation layers not available!");
         return false;
     }
+    
+    compileShadersIfNeeded();
 
     //app info
     VkApplicationInfo appInfo = {0};
@@ -1165,7 +1211,6 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
     }
     morphLog(LOG_MESSAGE, "Window surface created");
 
-        
     if (!pickPhysicalDevice(ctx)        || //physical device
         !createLogicalDevice(ctx)       || //logical device
         !createSwapchain(ctx, window)   || //swapchain
@@ -1175,7 +1220,7 @@ bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window)
         !createCommandPool(ctx)         || //command pool
         !createSyncObjects(ctx)         || //create sync objects
         !createVertexBuffer(ctx)        || //create vertex buffer
-        !createIndexBuffer(ctx))            //create index buffer
+        !createIndexBuffer(ctx))           //create index buffer
         return false;
 
     // render target
