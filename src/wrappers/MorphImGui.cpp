@@ -6,6 +6,13 @@
 #include "backends/imgui_impl_vulkan.h"
 #include "imgui_internal.h"
 
+#include <cstdio>
+#include <cstring>
+#include <stdlib.h>
+
+#include <windows.h>
+
+
 
 extern "C"
 {
@@ -56,14 +63,14 @@ bool morphImGuiInit(MorphVulkanContext *ctx, GLFWwindow *window)
     return true;
 }
 
-void morphImGuiNewFrame()
+void morphImGuiNewFrame(void)
 {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 }
 
-void morphImGuiEndFrame()
+void morphImGuiEndFrame(void)
 {
     ImGui::EndFrame();
     ImGui::UpdatePlatformWindows();
@@ -87,13 +94,13 @@ void morphImGuiShutdown(MorphVulkanContext* ctx)
     vkDestroyDescriptorPool(ctx->logicalDevice, ctx->imguiDescriptorPool, nullptr);
 }
 
-void morphImGuiBeginDockspace()
+void morphImGuiBeginDockspace(void)
 { ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode); }
 
 void morphImGuiBeginWindow(const char* name)
 { ImGui::Begin(name); }
 
-void morphImGuiEndWindow()
+void morphImGuiEndWindow(void)
 { ImGui::End(); }
 
 VkDescriptorSet morphImGuiRegisterTexture(VkSampler sampler, VkImageView view)
@@ -101,6 +108,12 @@ VkDescriptorSet morphImGuiRegisterTexture(VkSampler sampler, VkImageView view)
 
 void morphImGuiDrawOutput(MorphOutputConsoleBuffer* buffer)
 {
+    ImGui::Separator();
+
+    f32 footerHeight = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
+
+    ImGui::BeginChild("OutlinerList", ImVec2(0, -footerHeight), false, ImGuiWindowFlags_HorizontalScrollbar);
+
     bool full = buffer->count == MAX_CONSOLE_OUTPUT_LINES;
     u32 start = full ? buffer->writeIndex : 0;
 
@@ -109,16 +122,222 @@ void morphImGuiDrawOutput(MorphOutputConsoleBuffer* buffer)
         u32 index = (start + i) % MAX_CONSOLE_OUTPUT_LINES;
         ImGui::TextUnformatted(buffer->messages[index]);
     }
+
+    ImGui::EndChild();
 }
 
-void morphImGuiDrawContentDrawer()
+
+
+static void navigateTo(const char* newPath, bool recordHistory)
 {
-    
+    snprintf(selectedPath, sizeof(selectedPath), "%s", newPath);
+
+    if (recordHistory)
+    {
+        if (pathHistoryIndex < pathHistoryCount - 1)
+            pathHistoryCount = pathHistoryIndex + 1;
+
+        if (pathHistoryCount < MAX_HISTORY)
+        {
+            snprintf(pathHistory[pathHistoryCount], MAX_PATH_LEN, "%s", newPath);
+            pathHistoryCount++;
+            pathHistoryIndex++;
+        }
+        else
+        {
+            for (int i = 1; i < MAX_HISTORY; i++)
+                snprintf(pathHistory[i - 1], MAX_PATH_LEN, "%s", pathHistory[i]);
+            snprintf(pathHistory[MAX_HISTORY - 1], MAX_PATH_LEN, "%s", newPath);
+        }
+    }
 }
 
-void morphImGuiDrawTools()
+static bool hasSubdirectories(const char* path)
 {
+    WIN32_FIND_DATAA findData;
+    char searchPath[MAX_PATH_LEN];
+    snprintf(searchPath, sizeof(searchPath), "%s\\*", path);
 
+    HANDLE hFind = FindFirstFileA(searchPath, &findData);
+    if (hFind == INVALID_HANDLE_VALUE) return false;
+
+    do
+    {
+        if (strcmp(findData.cFileName, ".") == 0 || strcmp(findData.cFileName, "..") == 0) continue;
+        if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        {
+            FindClose(hFind);
+            return true;
+        }
+    } while (FindNextFileA(hFind, &findData));
+
+    FindClose(hFind);
+    return false;
+}
+
+static void drawFileTree(const char* path)
+{
+    WIN32_FIND_DATAA findData;
+    char searchPath[MAX_PATH_LEN];
+    snprintf(searchPath, sizeof(searchPath), "%s\\*", path);
+
+    HANDLE hFind = FindFirstFileA(searchPath, &findData);
+    if (hFind == INVALID_HANDLE_VALUE) return;
+
+    do
+    {
+        if (strcmp(findData.cFileName, ".") == 0 || strcmp(findData.cFileName, "..") == 0) continue;
+        if (!(findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) continue;
+
+        char childPath[MAX_PATH_LEN];
+        snprintf(childPath, sizeof(childPath), "%s\\%s", path, findData.cFileName);
+
+        bool selected = strcmp(selectedPath, childPath) == 0;
+        ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+        if (selected) flags |= ImGuiTreeNodeFlags_Selected;
+
+        if (!hasSubdirectories(childPath)) flags |= ImGuiTreeNodeFlags_Leaf;
+
+        bool open = ImGui::TreeNodeEx(findData.cFileName, flags);
+        if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen())
+            navigateTo(childPath, true);
+
+        if (open)
+        {
+            drawFileTree(childPath);
+            ImGui::TreePop();
+        }
+    } while (FindNextFileA(hFind, &findData));
+
+    FindClose(hFind);
+}
+
+void morphImGuiDrawAssetBrowser(void)
+{
+    ImGui::Separator();
+
+    if (ImGui::TreeNodeEx("Engine", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        drawFileTree(".");
+        ImGui::TreePop();
+    }
+}
+
+static int compareFileItems(const void* a, const void* b)
+{
+    const FileItem* itemA = (const FileItem*)a;
+    const FileItem* itemB = (const FileItem*)b;
+
+    if (itemA->isDir != itemB->isDir)
+        return itemB->isDir ? 1 : -1;
+
+    return strcmp(itemA->name, itemB->name);
+}
+
+static void drawFolderContents(MorphEditor* editor)
+{
+    //top bar
+    if (selectedPath[0] == '\0')
+        navigateTo(".", true);
+
+    bool canGoBack = pathHistoryIndex > 0;
+    bool canGoForward = pathHistoryIndex < pathHistoryCount - 1;
+
+    if (!canGoBack) ImGui::BeginDisabled();
+    if (ImGui::Button("<"))
+    {
+        pathHistoryIndex--;
+        navigateTo(pathHistory[pathHistoryIndex], false);
+    }
+    if (!canGoBack) ImGui::EndDisabled();
+
+    ImGui::SameLine();
+
+    if (!canGoForward) ImGui::BeginDisabled();
+    if (ImGui::Button(">"))
+    {
+        pathHistoryIndex++;
+        navigateTo(pathHistory[pathHistoryIndex], false);
+    }
+    if (!canGoForward) ImGui::EndDisabled();
+
+    ImGui::SameLine();
+    ImGui::Text("%s", selectedPath);
+
+    WIN32_FIND_DATAA findData;
+    char searchPath[MAX_PATH_LEN];
+    snprintf(searchPath, sizeof(searchPath), "%s\\*", selectedPath);
+
+    HANDLE hFind = FindFirstFileA(searchPath, &findData);
+    if (hFind == INVALID_HANDLE_VALUE) return;
+
+    static FileItem items[1024]; 
+    int itemCount = 0;
+
+    do
+    {
+        if (strcmp(findData.cFileName, ".") == 0 || strcmp(findData.cFileName, "..") == 0) continue;
+        if (itemCount >= 1024) break; 
+
+        snprintf(items[itemCount].name, sizeof(items[itemCount].name), "%s", findData.cFileName);
+        items[itemCount].isDir = (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+        itemCount++;
+    } while (FindNextFileA(hFind, &findData));
+    FindClose(hFind);
+
+    //content sort
+    qsort(items, itemCount, sizeof(FileItem), compareFileItems);
+
+    float padding = 16.0f;
+    float iconSize = 64.0f; 
+    float cellSize = iconSize + padding;
+
+    float panelWidth = ImGui::GetContentRegionAvail().x;
+    int columnCount = (int)(panelWidth / cellSize);
+    if (columnCount < 1) columnCount = 1;
+
+    if (ImGui::BeginTable("ContentBrowserGrid", columnCount))
+    {
+        for (int i = 0; i < itemCount; i++)
+        {
+            ImGui::TableNextColumn();
+            ImGui::PushID(i);
+
+            VkDescriptorSet iconId = items[i].isDir ? editor->folderIconId : editor->fileIconId;
+
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+            
+            if (ImGui::ImageButton(items[i].name, (ImTextureID)iconId, ImVec2(iconSize, iconSize)))
+            { }
+            
+            ImGui::PopStyleColor();
+
+            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+            {
+                if (items[i].isDir)
+                {
+                    char newPath[MAX_PATH_LEN];
+                    snprintf(newPath, sizeof(newPath), "%s\\%s", selectedPath, items[i].name);
+                    navigateTo(newPath, true);
+                }
+            }
+            
+            ImGui::TextWrapped("%s", items[i].name);
+            ImGui::PopID();
+        }
+        ImGui::EndTable();
+    }
+}
+
+void morphImGuiDrawFolderOverview(MorphEditor* editor)
+{
+    ImGui::Separator();
+    drawFolderContents(editor);
+}
+
+void morphImGuiDrawTools(void)
+{
+    ImGui::Separator();
 }
 
 static const char* entityTypeName(EntityType type)
@@ -133,6 +352,12 @@ static const char* entityTypeName(EntityType type)
 
 void morphImGuiDrawOutliner(Entities* scene, MorphEditor* editor)
 {
+    ImGui::Separator();
+
+    f32 footerHeight = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
+
+    ImGui::BeginChild("OutlinerList", ImVec2(0, -footerHeight), false, ImGuiWindowFlags_HorizontalScrollbar);
+
     for(u32 i = 0; i < scene->count; i++)
     {
         bool isSelected = editor->hasSelection && editor->selectedEntity.index == i;
@@ -145,10 +370,17 @@ void morphImGuiDrawOutliner(Entities* scene, MorphEditor* editor)
         }
         ImGui::PopID();
     }
+
+    ImGui::EndChild();
+
+    ImGui::Separator();
+    ImGui::Text("%u entities", scene->count);
 }
 
 void morphImGuiDrawDetails(Entities* scene, MorphEditor* editor)
 {
+    ImGui::Separator();
+
     if (!editor->hasSelection) return;
 
     u32 i = editor->selectedEntity.index;
@@ -166,6 +398,8 @@ void morphImGuiDrawDetails(Entities* scene, MorphEditor* editor)
 
 void morphImGuiDrawViewport(VkDescriptorSet descriptorSet, u32 texWidth, u32 texHeight)
 {
+    ImGui::Separator();
+
     ImVec2 size = ImGui::GetContentRegionAvail();
     ImGui::Image((ImTextureID)descriptorSet, size);
 }
@@ -212,7 +446,7 @@ void morphImGuiDrawMenuBar(MorphEditor *editor, f32 deltaTime)
     }
 }
 
-Vec2 morphImGuiGetViewportSize()
+Vec2 morphImGuiGetViewportSize(void)
 {
     ImVec2 size = ImGui::GetContentRegionAvail();
     Vec2 result = { (f32)size.x, (f32)size.y };
@@ -220,7 +454,7 @@ Vec2 morphImGuiGetViewportSize()
     return result;
 }
 
-bool morphImGuiGetViewportFocusedCursor()
+bool morphImGuiGetViewportFocusedCursor(void)
 { return ImGui::IsWindowHovered(); }
 
 }

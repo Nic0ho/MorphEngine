@@ -6,10 +6,17 @@
 #include "MorphMath.h"
 #include "MorphCamera.h"
 #include "MorphScene.h"
+#include "MorphBuffer.h"
 
 typedef struct
 {
     MorphOutputConsoleBuffer output;
+
+    //Icons
+    MorphTexture fileIcon;
+    MorphTexture folderIcon;
+    VkDescriptorSet fileIconId;
+    VkDescriptorSet folderIconId;
 
     //window visibility
     bool showOutput;

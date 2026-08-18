@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "MorphAtlas.h"
+#include "MorphBuffer.h"
 #include "MorphImGui.h"
 #include "MorphLog.h"
 #include "MorphScene.h"
@@ -80,6 +81,11 @@ int main(void)
         return 1;
     }
     vk.viewportDescriptorSet = morphImGuiRegisterTexture(vk.viewportTexture.sampler, vk.viewportTexture.view);
+    
+    if (morphTextureLoad(vk.logicalDevice, vk.physicalDevice, vk.commandPool, vk.graphicsQueue, "assets/file.png", &editor.fileIcon))
+        editor.fileIconId = morphImGuiRegisterTexture(editor.fileIcon.sampler, editor.fileIcon.view);
+    if (morphTextureLoad(vk.logicalDevice, vk.physicalDevice, vk.commandPool, vk.graphicsQueue, "assets/folder.png", &editor.folderIcon))
+        editor.folderIconId = morphImGuiRegisterTexture(editor.folderIcon.sampler, editor.folderIcon.view);
     morphLog(LOG_MESSAGE, "ImGui Loaded");
 
     // Scene
@@ -122,8 +128,11 @@ int main(void)
         }
         if (editor.showContentDrawer)
         {
-            morphImGuiBeginWindow("Content drawer");
-            morphImGuiDrawContentDrawer();
+            morphImGuiBeginWindow("Asset browser");
+            morphImGuiDrawAssetBrowser();
+            morphImGuiEndWindow();
+            morphImGuiBeginWindow("Folder overwiew");
+            morphImGuiDrawFolderOverview(&editor);
             morphImGuiEndWindow();
         }
         if (editor.showTools)
@@ -181,6 +190,10 @@ int main(void)
 
     //shutdown
     morphImGuiShutdown(&vk);
+#ifdef MORPH_EDITOR
+    morphTextureDestroy(vk.logicalDevice, &editor.fileIcon);
+    morphTextureDestroy(vk.logicalDevice, &editor.folderIcon);
+#endif
     morphVulkanShutdown(&vk);
     glfwDestroyWindow(window);
     glfwTerminate();

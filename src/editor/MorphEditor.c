@@ -29,8 +29,8 @@ void morphEditorUpdateInput(MorphEditor* editor, MorphInput* input, MorphCamera*
             editorCamera->viewWidth -= input->scrollDelta * editorCamera->zoomStrength;
             if (editorCamera->viewWidth < 0.5f)
                 editorCamera->viewWidth = 0.5f;
-
-            input->scrollDelta = 0;
         }
     }
+
+    input->scrollDelta = 0;
 }
