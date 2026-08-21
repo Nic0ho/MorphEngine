@@ -2,6 +2,7 @@
 
 #include "MorphInput.h"
 #include "MorphLog.h"
+#include "MorphProject.h"
 #include "MorphTypes.h"
 #include "MorphMath.h"
 #include "MorphCamera.h"
@@ -13,6 +14,9 @@
 typedef struct
 {
     MorphOutputConsoleBuffer output;
+
+    //Project
+    MorphProject project;
 
     //Icons
     MorphTexture assetIcons[ASSET_COUNT];

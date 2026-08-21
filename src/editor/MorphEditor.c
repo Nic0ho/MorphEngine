@@ -17,6 +17,9 @@ static const char* iconPaths[ASSET_COUNT] =
 
 void morphEditorInit(MorphEditor* editor, MorphVulkanContext* vk)
 {
+    
+
+    morphProjectCreate(&editor->project, "TestGame", "C:\\Users\\artem\\Documents"); 
     morphLogSetOutput(&editor->output);
     editor->showOutput = true;
     editor->showOutliner = true;

@@ -39,3 +39,6 @@ typedef size_t usize;
 
 //LEN
 #define LEN(arr) (sizeof(arr) / sizeof((arr)[0]))
+
+//PATH
+#define MAX_PATH_LEN 512

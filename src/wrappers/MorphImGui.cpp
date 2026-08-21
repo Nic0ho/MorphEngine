@@ -1,5 +1,6 @@
 #include "MorphImGui.h"
 #include "MorphAssetType.h"
+#include "MorphEditor.h"
 #include "MorphLog.h"
 #include "MorphScene.h"
 #include "imgui.h"
@@ -222,13 +223,22 @@ static void drawFileTree(const char* path)
     FindClose(hFind);
 }
 
-void morphImGuiDrawAssetBrowser(void)
+void morphImGuiDrawAssetBrowser(MorphEditor* editor)
 {
     ImGui::Separator();
 
-    if (ImGui::TreeNodeEx("Engine", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::TreeNodeEx("Project", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        drawFileTree(".");
+        char projectPath[MAX_PATH_LEN];
+        snprintf(projectPath, sizeof(projectPath), "%s\\Project", editor->project.rootPath);
+        drawFileTree(projectPath);
+        ImGui::TreePop();
+    }
+    if (ImGui::TreeNodeEx("Engine", NULL))
+    {
+        char enginePath[MAX_PATH_LEN];
+        snprintf(enginePath, sizeof(enginePath), "%s\\Engine", editor->project.rootPath);
+        drawFileTree(enginePath);
         ImGui::TreePop();
     }
 }
@@ -248,7 +258,7 @@ static void drawFolderContents(MorphEditor* editor)
 {
     //top bar
     if (selectedPath[0] == '\0')
-        navigateTo(".", true);
+        navigateTo(editor->project.rootPath, true);
 
     bool canGoBack = pathHistoryIndex > 0;
     bool canGoForward = pathHistoryIndex < pathHistoryCount - 1;
@@ -287,6 +297,9 @@ static void drawFolderContents(MorphEditor* editor)
     do
     {
         if (strcmp(findData.cFileName, ".") == 0 || strcmp(findData.cFileName, "..") == 0) continue;
+        const char* ext = strrchr(findData.cFileName, '.');
+        if (ext && strcmp(ext, ".mproj") == 0) continue;
+        
         if (itemCount >= 1024) break; 
 
         snprintf(items[itemCount].name, sizeof(items[itemCount].name), "%s", findData.cFileName);

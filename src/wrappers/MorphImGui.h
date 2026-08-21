@@ -8,7 +8,6 @@
 #include <GLFW/glfw3.h>
 
 #define MAX_HISTORY 64
-#define MAX_PATH_LEN 512
 
 #ifdef __cplusplus
 extern "C"
@@ -23,7 +22,7 @@ void morphImGuiShutdown(MorphVulkanContext* ctx);
 
 //panels
 void morphImGuiDrawOutput(MorphOutputConsoleBuffer* buffer);
-void morphImGuiDrawAssetBrowser(void);
+void morphImGuiDrawAssetBrowser(MorphEditor* editor);
 void morphImGuiDrawFolderOverview(MorphEditor* editor);
 void morphImGuiDrawTools(void);
 void morphImGuiDrawOutliner(Entities* scene, MorphEditor* editor);

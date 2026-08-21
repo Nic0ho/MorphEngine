@@ -121,7 +121,7 @@ int main(void)
         if (editor.showContentDrawer)
         {
             morphImGuiBeginWindow("Asset browser");
-            morphImGuiDrawAssetBrowser();
+            morphImGuiDrawAssetBrowser(&editor);
             morphImGuiEndWindow();
             morphImGuiBeginWindow("Folder overwiew");
             morphImGuiDrawFolderOverview(&editor);

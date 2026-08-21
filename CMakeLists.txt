@@ -18,6 +18,7 @@ add_executable(MorphEngine
     src/core/main.c
     src/core/MorphCamera.c
     src/core/MorphInput.c
+    src/core/MorphProject.c
     src/core/MorphScene.c
     src/core/MorphSerializer.c
     #editor
