@@ -1,10 +1,14 @@
 #pragma once
 
+#include "MorphSerializer.h"
 #include "MorphTypes.h"
 #include "MorphMath.h"
 #include "MorphBuffer.h"
 
+#define MORPH_SCENE_VERSION 1
+
 #define MAX_ENTITIES 200
+
 typedef enum
 {
     COMPONENT_POSITION = 1 << 0,
@@ -22,6 +26,13 @@ typedef enum
 
 typedef struct
 {
+    MorphAssetHeader assetHeader;
+    u32 version;
+    u32 entityCount;
+} MorphSceneHeader;
+
+typedef struct
+{
     u32 index;
     u32 generation;
 } EntityHandle;
@@ -31,12 +42,16 @@ typedef struct
     u32            count;
     EntityType     type[MAX_ENTITIES];
     Vec2           position[MAX_ENTITIES];
+    f32            rotation[MAX_ENTITIES];
+    Vec2           size[MAX_ENTITIES];
     Vec2           velocity[MAX_ENTITIES];
     u32            spriteID[MAX_ENTITIES];
-    Vec2           size[MAX_ENTITIES];
     ComponentFlags entityFlags[MAX_ENTITIES];
     u32            generation[MAX_ENTITIES];
 } Entities;
+
+bool morphSceneSave(Entities* scene, const char* filepath);
+bool morphSceneLoad(Entities* scene, const char* filepath);
 
 EntityHandle morphSceneSpawnEntity(Entities* scene, EntityType type, Vec2 position, Vec2 size);
 

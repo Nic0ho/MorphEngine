@@ -37,18 +37,13 @@ int main(void)
     }
 
     //INITIALS
-    //Editor
-    MorphEditor editor =  {0};
-    morphLogSetOutput(&editor.output);
-    editor.showOutput = true;
-    editor.showOutliner = true;
-    editor.showDetails = true;
-    editor.showTools = true;
-    editor.showContentDrawer = true;
-    editor.showViewport = true;
 
+#ifdef MORPH_EDITOR
+    //Editor
+    MorphEditor editor = {0};
     Vec2 viewportSize = {0};
     morphLog(LOG_MESSAGE, "Editor initialized");
+#endif
 
     //Time
     MorphTime timeState = {0};
@@ -80,12 +75,9 @@ int main(void)
         morphLog(LOG_ERROR, "ImGui init fail!");
         return 1;
     }
-    vk.viewportDescriptorSet = morphImGuiRegisterTexture(vk.viewportTexture.sampler, vk.viewportTexture.view);
-    
-    if (morphTextureLoad(vk.logicalDevice, vk.physicalDevice, vk.commandPool, vk.graphicsQueue, "assets/file.png", &editor.fileIcon))
-        editor.fileIconId = morphImGuiRegisterTexture(editor.fileIcon.sampler, editor.fileIcon.view);
-    if (morphTextureLoad(vk.logicalDevice, vk.physicalDevice, vk.commandPool, vk.graphicsQueue, "assets/folder.png", &editor.folderIcon))
-        editor.folderIconId = morphImGuiRegisterTexture(editor.folderIcon.sampler, editor.folderIcon.view);
+#ifdef MORPH_EDITOR
+    morphEditorInit(&editor, &vk);
+#endif
     morphLog(LOG_MESSAGE, "ImGui Loaded");
 
     // Scene
@@ -112,7 +104,7 @@ int main(void)
         
         scene.velocity[player.index] = (Vec2){0}; 
 
-        morphEditorUpdateInput(&editor, &input, &camera, (f32)timeState.deltaTime);
+        morphEditorUpdateInput(&editor, &input, &camera, &scene, (f32)timeState.deltaTime);
 
         morphSceneUpdateMovement(&scene, (f32)timeState.deltaTime);
         
@@ -189,10 +181,9 @@ int main(void)
     }
 
     //shutdown
-    morphImGuiShutdown(&vk);
 #ifdef MORPH_EDITOR
-    morphTextureDestroy(vk.logicalDevice, &editor.fileIcon);
-    morphTextureDestroy(vk.logicalDevice, &editor.folderIcon);
+    morphImGuiShutdown(&vk);
+    morphEditorShutdown(&editor, &vk);
 #endif
     morphVulkanShutdown(&vk);
     glfwDestroyWindow(window);

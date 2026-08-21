@@ -7,6 +7,6 @@ MorphEngine is a custom, cross-platform 2D/3D game engine built from scratch.
 * **Windowing & Input:** GLFW
 * **Asset loading:** stb
 * **Working environments:** VS Code
-* **Icon assets:** Good Ware, Gajah Mada
+* **Icon assets:** Good Ware, Gajah Mada, Magnific, Us and Up, Rahul Kaklotar
 
 This project is a personal development intended for future academic research and thesis work.

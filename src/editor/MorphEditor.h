@@ -7,16 +7,16 @@
 #include "MorphCamera.h"
 #include "MorphScene.h"
 #include "MorphBuffer.h"
+#include "MorphAssetType.h"
+#include "MorphVulkan.h"
 
 typedef struct
 {
     MorphOutputConsoleBuffer output;
 
     //Icons
-    MorphTexture fileIcon;
-    MorphTexture folderIcon;
-    VkDescriptorSet fileIconId;
-    VkDescriptorSet folderIconId;
+    MorphTexture assetIcons[ASSET_COUNT];
+    VkDescriptorSet assetIconIds[ASSET_COUNT];
 
     //window visibility
     bool showOutput;
@@ -37,4 +37,6 @@ typedef struct
     bool hasSelection;
 } MorphEditor;
 
-void morphEditorUpdateInput(MorphEditor* editor, MorphInput* input, MorphCamera* editorCamera, f32 deltaTime);
+void morphEditorInit(MorphEditor* editor, MorphVulkanContext* vk);
+void morphEditorShutdown(MorphEditor* editor, MorphVulkanContext* vk);
+void morphEditorUpdateInput(MorphEditor* editor, MorphInput* input, MorphCamera* editorCamera, Entities* scene, f32 deltaTime);

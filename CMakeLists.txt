@@ -19,7 +19,9 @@ add_executable(MorphEngine
     src/core/MorphCamera.c
     src/core/MorphInput.c
     src/core/MorphScene.c
+    src/core/MorphSerializer.c
     #editor
+    src/editor/MorphAssetType.c
     src/editor/MorphEditor.c
     #rendering
     src/rendering/MorphAtlas.c
@@ -32,7 +34,6 @@ add_executable(MorphEngine
     #wrappers
     src/wrappers/MorphImGui.cpp
     src/wrappers/MorphStbImage.c
-
     #imgui
     external/imgui/imgui.cpp
     external/imgui/imgui_draw.cpp

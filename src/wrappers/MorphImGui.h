@@ -15,17 +15,6 @@ extern "C"
 {
 #endif
 
-struct FileItem
-{
-    char name[256];
-    bool isDir;
-};
-
-static char selectedPath[MAX_PATH_LEN] = "";
-static char pathHistory[MAX_HISTORY][MAX_PATH_LEN];
-static int pathHistoryCount = 0;
-static int pathHistoryIndex = -1;
-
 bool morphImGuiInit(MorphVulkanContext* ctx, GLFWwindow* window);
 void morphImGuiNewFrame(void);
 void morphImGuiEndFrame(void);

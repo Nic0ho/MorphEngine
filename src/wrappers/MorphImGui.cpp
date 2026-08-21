@@ -1,4 +1,5 @@
 #include "MorphImGui.h"
+#include "MorphAssetType.h"
 #include "MorphLog.h"
 #include "MorphScene.h"
 #include "imgui.h"
@@ -12,7 +13,16 @@
 
 #include <windows.h>
 
+struct FileItem
+{
+    char name[256];
+    bool isDir;
+};
 
+static char selectedPath[MAX_PATH_LEN] = "";
+static char pathHistory[MAX_HISTORY][MAX_PATH_LEN];
+static int pathHistoryCount = 0;
+static int pathHistoryIndex = -1;
 
 extern "C"
 {
@@ -303,7 +313,11 @@ static void drawFolderContents(MorphEditor* editor)
             ImGui::TableNextColumn();
             ImGui::PushID(i);
 
-            VkDescriptorSet iconId = items[i].isDir ? editor->folderIconId : editor->fileIconId;
+            
+            char fullPath[MAX_PATH_LEN];
+            snprintf(fullPath, sizeof(fullPath), "%s\\%s", selectedPath, items[i].name);
+            AssetType type = items[i].isDir? ASSET_FOLDER : morphClassifyAsset(fullPath);
+            VkDescriptorSet iconId = editor->assetIconIds[type];
 
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
             
@@ -321,7 +335,7 @@ static void drawFolderContents(MorphEditor* editor)
                     navigateTo(newPath, true);
                 }
             }
-            
+
             ImGui::TextWrapped("%s", items[i].name);
             ImGui::PopID();
         }
