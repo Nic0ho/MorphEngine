@@ -57,5 +57,5 @@ typedef struct
 
 bool morphVulkanInit(MorphVulkanContext* ctx, GLFWwindow* window);
 void morphVulkanShutdown(MorphVulkanContext* ctx);
-void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window, MorphCamera* camera, Entities* scene);
+void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window, MorphCamera* camera, MorphScene* scene);
 void morphVulkanResizeViewport(MorphVulkanContext* ctx, u32 width, u32 height);

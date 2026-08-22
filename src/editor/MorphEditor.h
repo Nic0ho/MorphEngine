@@ -11,6 +11,13 @@
 #include "MorphAssetType.h"
 #include "MorphVulkan.h"
 
+typedef enum
+{
+    SELECTION_NONE,
+    SELECTION_SCENE,
+    SELECTION_ENTITY,
+} SelectionType;
+
 typedef struct
 {
     MorphOutputConsoleBuffer output;
@@ -37,10 +44,10 @@ typedef struct
     bool viewportCursorFocused;
 
     //outliner
+    SelectionType selectionType;
     EntityHandle selectedEntity;
-    bool hasSelection;
 } MorphEditor;
 
 void morphEditorInit(MorphEditor* editor, MorphVulkanContext* vk);
 void morphEditorShutdown(MorphEditor* editor, MorphVulkanContext* vk);
-void morphEditorUpdateInput(MorphEditor* editor, MorphInput* input, MorphCamera* editorCamera, Entities* scene, f32 deltaTime);
+void morphEditorUpdateInput(MorphEditor* editor, MorphInput* input, MorphCamera* editorCamera, MorphScene* scene, f32 deltaTime);

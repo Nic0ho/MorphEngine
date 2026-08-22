@@ -377,7 +377,7 @@ static const char* entityTypeName(EntityType type)
     }
 }
 
-void morphImGuiDrawOutliner(Entities* scene, MorphEditor* editor)
+void morphImGuiDrawOutliner(MorphScene* scene, MorphEditor* editor)
 {
     ImGui::Separator();
 
@@ -385,42 +385,55 @@ void morphImGuiDrawOutliner(Entities* scene, MorphEditor* editor)
 
     ImGui::BeginChild("OutlinerList", ImVec2(0, -footerHeight), false, ImGuiWindowFlags_HorizontalScrollbar);
 
-    for(u32 i = 0; i < scene->count; i++)
+    bool sceneSelected = (editor->selectionType == SELECTION_SCENE);
+    if (ImGui::TreeNodeEx("Scene", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnArrow | (sceneSelected ? ImGuiTreeNodeFlags_Selected : 0)))
     {
-        bool isSelected = editor->hasSelection && editor->selectedEntity.index == i;
+        if (ImGui::IsItemClicked())
+            editor->selectionType = SELECTION_SCENE;
 
-        ImGui::PushID(i);
-        if (ImGui::Selectable(entityTypeName(scene->type[i]), isSelected))
+        for(u32 i = 0; i < scene->entitiesCount; i++)
         {
-            editor->selectedEntity = (EntityHandle){ i, scene->generation[i] };
-            editor->hasSelection = true;
+            bool isSelected = (editor->selectionType == SELECTION_ENTITY && editor->selectedEntity.index == i);
+
+            ImGui::PushID(i);
+            if (ImGui::Selectable(entityTypeName(scene->entitiesType[i]), isSelected))
+            {
+                editor->selectedEntity = (EntityHandle){ i, scene->entitiesGeneration[i] };
+                editor->selectionType = SELECTION_ENTITY;
+            }
+            ImGui::PopID();
         }
-        ImGui::PopID();
+        ImGui::TreePop();
     }
 
     ImGui::EndChild();
 
     ImGui::Separator();
-    ImGui::Text("%u entities", scene->count);
+    ImGui::Text("%u entities", scene->entitiesCount);
 }
 
-void morphImGuiDrawDetails(Entities* scene, MorphEditor* editor)
+void morphImGuiDrawDetails(MorphScene* scene, MorphEditor* editor)
 {
     ImGui::Separator();
 
-    if (!editor->hasSelection) return;
+    if (editor->selectionType == SELECTION_ENTITY)
+    {
+        u32 i = editor->selectedEntity.index;
 
-    u32 i = editor->selectedEntity.index;
-
-    ImGui::Text("Type: %s", entityTypeName(scene->type[i]));
-    ImGui::Text("Position: %.2f, %.2f", scene->position[i].x, scene->position[i].y);
-    ImGui::Text("Size: %.2f, %.2f", scene->size[i].x, scene->size[i].y);
-    ImGui::Text("Velocity: %.2f, %.2f", scene->velocity[i].x, scene->velocity[i].y);
-    ImGui::Text("Enabled components:");
-    ImGui::Text(" Position: %s", (scene->entityFlags[i] & COMPONENT_POSITION) ? "enabled" : "disabled");
-    ImGui::Text(" Velocity: %s", (scene->entityFlags[i] & COMPONENT_VELOCITY) ? "enabled" : "disabled");
-    ImGui::Text(" Texture: %s", (scene->entityFlags[i] & COMPONENT_TEXTURE)  ? "enabled" : "disabled");
-    ImGui::Text(" Size: %s", (scene->entityFlags[i] & COMPONENT_SIZE) ? "enabled" : "disabled");
+        ImGui::Text("Type: %s", entityTypeName(scene->entitiesType[i]));
+        ImGui::Text("Position: %.2f, %.2f", scene->entitiesPosition[i].x, scene->entitiesPosition[i].y);
+        ImGui::Text("Size: %.2f, %.2f", scene->entitiesSize[i].x, scene->entitiesSize[i].y);
+        ImGui::Text("Velocity: %.2f, %.2f", scene->entitiesVelocity[i].x, scene->entitiesVelocity[i].y);
+        ImGui::Text("Enabled components:");
+        ImGui::Text(" Position: %s", (scene->entitiesFlags[i] & COMPONENT_POSITION) ? "enabled" : "disabled");
+        ImGui::Text(" Velocity: %s", (scene->entitiesFlags[i] & COMPONENT_VELOCITY) ? "enabled" : "disabled");
+        ImGui::Text(" Texture: %s", (scene->entitiesFlags[i] & COMPONENT_TEXTURE)  ? "enabled" : "disabled");
+        ImGui::Text(" Size: %s", (scene->entitiesFlags[i] & COMPONENT_SIZE) ? "enabled" : "disabled");
+    }
+    else if (editor->selectionType == SELECTION_SCENE)
+    {
+        ImGui::ColorEdit4("Background", (float*)&scene->settings.bgColor);
+    }    
 }
 
 void morphImGuiDrawViewport(VkDescriptorSet descriptorSet, u32 texWidth, u32 texHeight)

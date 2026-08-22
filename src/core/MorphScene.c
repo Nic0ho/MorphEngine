@@ -4,7 +4,7 @@
 #include "MorphMath.h"
 #include "MorphSerializer.h"
 
-bool morphSceneSave(Entities *scene, const char *filepath)
+bool morphSceneSave(MorphScene* scene, const char* filepath)
 {
     MorphFile file = morphFileOpenWrite(filepath);
     if (!file.isValid)
@@ -14,17 +14,17 @@ bool morphSceneSave(Entities *scene, const char *filepath)
     header.assetHeader.magic = MORPH_MAGIC;
     header.assetHeader.assetType = ASSET_SCENE;
     header.version = MORPH_SCENE_VERSION;
-    header.entityCount = scene->count;
+    header.entityCount = scene->entitiesCount;
 
-    if (!morphFileWrite(&file, &header, sizeof(MorphSceneHeader), 1)                     ||
-        !morphFileWrite(&file, scene->type, sizeof(EntityType), scene->count)            ||
-        !morphFileWrite(&file, scene->position, sizeof(Vec2), scene->count)              ||
-        !morphFileWrite(&file, scene->rotation, sizeof(f32), scene->count)               ||
-        !morphFileWrite(&file, scene->size, sizeof(Vec2), scene->count)                  ||
-        !morphFileWrite(&file, scene->velocity, sizeof(Vec2), scene->count)              ||
-        !morphFileWrite(&file, scene->spriteID, sizeof(u32), scene->count)               ||
-        !morphFileWrite(&file, scene->entityFlags, sizeof(ComponentFlags), scene->count) ||
-        !morphFileWrite(&file, scene->generation, sizeof(u32), scene->count))
+    if (!morphFileWrite(&file, &header, sizeof(MorphSceneHeader), 1)                                     ||
+        !morphFileWrite(&file, scene->entitiesType, sizeof(EntityType), scene->entitiesCount)            ||
+        !morphFileWrite(&file, scene->entitiesPosition, sizeof(Vec2), scene->entitiesCount)              ||
+        !morphFileWrite(&file, scene->entitiesRotation, sizeof(f32), scene->entitiesCount)               ||
+        !morphFileWrite(&file, scene->entitiesSize, sizeof(Vec2), scene->entitiesCount)                  ||
+        !morphFileWrite(&file, scene->entitiesVelocity, sizeof(Vec2), scene->entitiesCount)              ||
+        !morphFileWrite(&file, scene->entitiesSpriteID, sizeof(u32), scene->entitiesCount)               ||
+        !morphFileWrite(&file, scene->entitiesFlags, sizeof(ComponentFlags), scene->entitiesCount)       ||
+        !morphFileWrite(&file, scene->entitiesGeneration, sizeof(u32), scene->entitiesCount))
     {
         morphLog(LOG_ERROR, "Error during saving scene to: %s!", filepath);
         morphFileClose(&file);
@@ -37,7 +37,7 @@ bool morphSceneSave(Entities *scene, const char *filepath)
     return true;
 }
 
-bool morphSceneLoad(Entities *scene, const char *filepath)
+bool morphSceneLoad(MorphScene* scene, const char* filepath)
 {
     MorphFile file = morphFileOpenRead(filepath);
     if (!file.isValid)
@@ -55,21 +55,21 @@ bool morphSceneLoad(Entities *scene, const char *filepath)
         return false;
     }
 
-    if (!morphFileRead(&file, &scene->type, sizeof(EntityType), header.entityCount)            ||
-        !morphFileRead(&file, &scene->position, sizeof(Vec2), header.entityCount)              ||
-        !morphFileRead(&file, &scene->rotation, sizeof(f32), header.entityCount)               ||
-        !morphFileRead(&file, &scene->size, sizeof(Vec2), header.entityCount)                  ||
-        !morphFileRead(&file, &scene->velocity, sizeof(Vec2), header.entityCount)              ||
-        !morphFileRead(&file, &scene->spriteID, sizeof(u32), header.entityCount)               ||
-        !morphFileRead(&file, &scene->entityFlags, sizeof(ComponentFlags), header.entityCount) ||
-        !morphFileRead(&file, &scene->generation, sizeof(u32), header.entityCount))
+    if (!morphFileRead(&file, &scene->entitiesType, sizeof(EntityType), header.entityCount)            ||
+        !morphFileRead(&file, &scene->entitiesPosition, sizeof(Vec2), header.entityCount)              ||
+        !morphFileRead(&file, &scene->entitiesRotation, sizeof(f32), header.entityCount)               ||
+        !morphFileRead(&file, &scene->entitiesSize, sizeof(Vec2), header.entityCount)                  ||
+        !morphFileRead(&file, &scene->entitiesVelocity, sizeof(Vec2), header.entityCount)              ||
+        !morphFileRead(&file, &scene->entitiesSpriteID, sizeof(u32), header.entityCount)               ||
+        !morphFileRead(&file, &scene->entitiesFlags, sizeof(ComponentFlags), header.entityCount) ||
+        !morphFileRead(&file, &scene->entitiesGeneration, sizeof(u32), header.entityCount))
     {
         morphLog(LOG_ERROR, "Failed to load scene from %s!", filepath);
         morphFileClose(&file);
         return false;
     }
 
-    scene->count = header.entityCount;
+    scene->entitiesCount = header.entityCount;
 
     morphFileClose(&file);
 
@@ -77,50 +77,69 @@ bool morphSceneLoad(Entities *scene, const char *filepath)
     return true;
 }
 
-EntityHandle morphSceneSpawnEntity(Entities* scene, EntityType type, Vec2 position, Vec2 size)
+EntityHandle morphSceneSpawnEntity(MorphScene* scene, EntityType type, Vec2 position, Vec2 size)
 {
-    if (scene->count == MAX_ENTITIES)
+    if (scene->entitiesCount == MAX_ENTITIES)
     {
         morphLog(LOG_ERROR, "Can not spawn entity. Max limit reached");
         return (EntityHandle){ .index = MAX_ENTITIES, .generation = 0 };
     }
 
-    u32 claimedIndex = scene->count++;
+    u32 claimedIndex = scene->entitiesCount++;
 
-    scene->type[claimedIndex] = type;
-    scene->position[claimedIndex] = position;
-    scene->size[claimedIndex] = size;
+    scene->entitiesType[claimedIndex] = type;
+    scene->entitiesPosition[claimedIndex] = position;
+    scene->entitiesSize[claimedIndex] = size;
 
     switch (type)
     {
         case ENTITY_BLOCK:
-            scene->entityFlags[claimedIndex] = COMPONENT_POSITION | COMPONENT_TEXTURE | COMPONENT_SIZE;
+            scene->entitiesFlags[claimedIndex] = COMPONENT_POSITION | COMPONENT_TEXTURE | COMPONENT_SIZE;
             break;
         
         case ENTITY_PLAYER:
-            scene->entityFlags[claimedIndex] = COMPONENT_POSITION | COMPONENT_VELOCITY | COMPONENT_TEXTURE | COMPONENT_SIZE;
+            scene->entitiesFlags[claimedIndex] = COMPONENT_POSITION | COMPONENT_VELOCITY | COMPONENT_TEXTURE | COMPONENT_SIZE;
             break;
         
         case ENTITY_PARTICLE:
-            scene->entityFlags[claimedIndex] = COMPONENT_POSITION | COMPONENT_VELOCITY;
+            scene->entitiesFlags[claimedIndex] = COMPONENT_POSITION | COMPONENT_VELOCITY;
             break;
         
         default:
             break;
     }
 
-    scene->generation[claimedIndex]++;
+    scene->entitiesGeneration[claimedIndex]++;
 
-    return (EntityHandle){ .index = claimedIndex, .generation = scene->generation[claimedIndex] };
+    return (EntityHandle){ .index = claimedIndex, .generation = scene->entitiesGeneration[claimedIndex] };
 }
 
-void morphSceneUpdateMovement(Entities* scene, f32 deltaTime)
+bool morphSceneRemoveEntity(MorphScene* scene, EntityHandle handle)
 {
-    for (u32 i = 0; i < scene->count; i++)
+    if (handle.generation != scene->entitiesGeneration[handle.index])
+        return false;
+
+    scene->entitiesFlags[handle.index] = scene->entitiesFlags[scene->entitiesCount - 1];
+    scene->entitiesPosition[handle.index] = scene->entitiesPosition[scene->entitiesCount - 1];
+    scene->entitiesRotation[handle.index] = scene->entitiesRotation[scene->entitiesCount - 1];
+    scene->entitiesSize[handle.index] = scene->entitiesSize[scene->entitiesCount - 1];
+    scene->entitiesVelocity[handle.index] = scene->entitiesVelocity[scene->entitiesCount - 1];
+    scene->entitiesType[handle.index] = scene->entitiesType[scene->entitiesCount - 1];
+    scene->entitiesSpriteID[handle.index] = scene->entitiesSpriteID[scene->entitiesCount - 1];
+
+    scene->entitiesGeneration[handle.index]++;
+    scene->entitiesCount--;
+
+    return true;    
+}
+
+void morphSceneUpdateMovement(MorphScene* scene, f32 deltaTime)
+{
+    for (u32 i = 0; i < scene->entitiesCount; i++)
     {
-        if (scene->entityFlags[i] & COMPONENT_VELOCITY)
+        if (scene->entitiesFlags[i] & COMPONENT_VELOCITY)
         {
-            scene->position[i] = vec2Add(scene->position[i], vec2Scale(scene->velocity[i], deltaTime));
+            scene->entitiesPosition[i] = vec2Add(scene->entitiesPosition[i], vec2Scale(scene->entitiesVelocity[i], deltaTime));
         }
     }
 

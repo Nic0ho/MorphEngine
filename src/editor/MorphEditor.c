@@ -44,7 +44,7 @@ void morphEditorShutdown(MorphEditor* editor, MorphVulkanContext* vk)
         morphTextureDestroy(vk->logicalDevice, &editor->assetIcons[i]);
 }
 
-void morphEditorUpdateInput(MorphEditor* editor, MorphInput* input, MorphCamera* editorCamera, Entities* scene, f32 deltaTime)
+void morphEditorUpdateInput(MorphEditor* editor, MorphInput* input, MorphCamera* editorCamera, MorphScene* scene, f32 deltaTime)
 {
     // BINDINGS --------------------
     //file
@@ -78,4 +78,11 @@ void morphEditorUpdateInput(MorphEditor* editor, MorphInput* input, MorphCamera*
     }
 
     input->scrollDelta = 0;
+
+    //outliner
+    if (morphInputIsKeyPressed(input, GLFW_KEY_DELETE) && editor->selectionType == SELECTION_ENTITY)
+    {
+        morphSceneRemoveEntity(scene, editor->selectedEntity);
+        editor->selectionType = SELECTION_NONE;
+    }
 }

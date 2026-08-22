@@ -39,20 +39,27 @@ typedef struct
 
 typedef struct
 {
-    u32            count;
-    EntityType     type[MAX_ENTITIES];
-    Vec2           position[MAX_ENTITIES];
-    f32            rotation[MAX_ENTITIES];
-    Vec2           size[MAX_ENTITIES];
-    Vec2           velocity[MAX_ENTITIES];
-    u32            spriteID[MAX_ENTITIES];
-    ComponentFlags entityFlags[MAX_ENTITIES];
-    u32            generation[MAX_ENTITIES];
-} Entities;
+    Vec4 bgColor;
+} MorphSceneSettings;
 
-bool morphSceneSave(Entities* scene, const char* filepath);
-bool morphSceneLoad(Entities* scene, const char* filepath);
+typedef struct
+{
+    MorphSceneSettings settings;
+    u32                entitiesCount;
+    EntityType         entitiesType[MAX_ENTITIES];
+    Vec2               entitiesPosition[MAX_ENTITIES];
+    f32                entitiesRotation[MAX_ENTITIES];
+    Vec2               entitiesSize[MAX_ENTITIES];
+    Vec2               entitiesVelocity[MAX_ENTITIES];
+    u32                entitiesSpriteID[MAX_ENTITIES];
+    ComponentFlags     entitiesFlags[MAX_ENTITIES];
+    u32                entitiesGeneration[MAX_ENTITIES];
+} MorphScene;
 
-EntityHandle morphSceneSpawnEntity(Entities* scene, EntityType type, Vec2 position, Vec2 size);
+bool morphSceneSave(MorphScene* scene, const char* filepath);
+bool morphSceneLoad(MorphScene* scene, const char* filepath);
 
-void morphSceneUpdateMovement(Entities* scene, f32 deltaTime);
+EntityHandle morphSceneSpawnEntity(MorphScene* scene, EntityType type, Vec2 position, Vec2 size);
+bool morphSceneRemoveEntity(MorphScene* scene, EntityHandle handle);
+
+void morphSceneUpdateMovement(MorphScene* scene, f32 deltaTime);

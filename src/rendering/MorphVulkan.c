@@ -247,7 +247,7 @@ static void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout ol
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
-static void drawScene(VkCommandBuffer cmd, MorphVulkanContext* ctx, MorphCamera* camera, Entities* scene)
+static void drawScene(VkCommandBuffer cmd, MorphVulkanContext* ctx, MorphCamera* camera, MorphScene* scene)
 {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->graphicsPipeline);
     
@@ -283,15 +283,15 @@ static void drawScene(VkCommandBuffer cmd, MorphVulkanContext* ctx, MorphCamera*
     ctx->fnPushDescriptors(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, ctx->pipelineLayout, 0, 1, &write);
 
     //loading scene
-    for (u32 i = 0; i < scene->count; i++)
+    for (u32 i = 0; i < scene->entitiesCount; i++)
     {
-        if (!(scene->entityFlags[i] & COMPONENT_TEXTURE)) continue;
+        if (!(scene->entitiesFlags[i] & COMPONENT_TEXTURE)) continue;
 
-        SpriteRect* spritePlain = &ctx->atlas.sprite[scene->spriteID[i]];
+        SpriteRect* spritePlain = &ctx->atlas.sprite[scene->entitiesSpriteID[i]];
         
-        Vec2 s = scene->size[i];
+        Vec2 s = scene->entitiesSize[i];
         Mat4 scale = mat4Scale(s.x, s.y, 1.0f);
-        Mat4 translate = mat4Translate(scene->position[i].x, scene->position[i].y, 0);
+        Mat4 translate = mat4Translate(scene->entitiesPosition[i].x, scene->entitiesPosition[i].y, 0);
         Mat4 entityTransform = mat4Mul(viewProj, mat4Mul(translate, scale));
 
         PushConstants pc = {0};
@@ -304,7 +304,7 @@ static void drawScene(VkCommandBuffer cmd, MorphVulkanContext* ctx, MorphCamera*
     }
 }
 
-static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex, MorphCamera* camera, Entities* scene)
+static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex, MorphCamera* camera, MorphScene* scene)
 {
     VkCommandBuffer cmd = ctx->commandBuffers[ctx->currentFrame];
 
@@ -317,8 +317,14 @@ static void recordCommandBuffer(MorphVulkanContext* ctx, u32 imageIndex, MorphCa
         morphLog(LOG_ERROR, "Failed to begin recording command buffer!");
         return;
     }
+    
+    if (scene->settings.bgColor.w == 0.0f)
+        scene->settings.bgColor = (Vec4){0.0f, 0.0f, 0.0f, 1.0f};
 
-    VkClearValue clearColor = {{{ 0.1f, 0.1f, 0.15f, 1.0f }}};
+    VkClearValue clearColor = {{{ scene->settings.bgColor.x,
+                                  scene->settings.bgColor.y,
+                                  scene->settings.bgColor.z,
+                                  scene->settings.bgColor.w  }}};
 
 #ifdef MORPH_EDITOR
     transitionImage(cmd, ctx->viewportTexture.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -1054,7 +1060,7 @@ void morphVulkanResizeViewport(MorphVulkanContext* ctx, u32 width, u32 height)
     morphTextureCreateRenderTarget(ctx->logicalDevice, ctx->physicalDevice, ctx->commandPool, ctx->graphicsQueue, width, height, &ctx->viewportTexture);
 }
 
-void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window, MorphCamera* camera, Entities* scene)
+void morphVulkanDraw(MorphVulkanContext* ctx, GLFWwindow* window, MorphCamera* camera, MorphScene* scene)
 {
     //wait untill this frame slot is free (GPU finished with it)
     vkWaitForFences(ctx->logicalDevice, 1, &ctx->inFlightFences[ctx->currentFrame], VK_TRUE, UINT64_MAX);

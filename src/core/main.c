@@ -81,17 +81,17 @@ int main(void)
     morphLog(LOG_MESSAGE, "ImGui Loaded");
 
     // Scene
-    Entities scene = {0};
+    MorphScene scene = {0};
     
-    EntityHandle player = morphSceneSpawnEntity(&scene, ENTITY_PLAYER, (Vec2){1.0f, 0.0f}, (Vec2){1.0f, 1.0f});
+    EntityHandle player = morphSceneSpawnEntity(&scene, ENTITY_PLAYER, (Vec2){4.0f, 0.0f}, (Vec2){1.0f, 1.0f});
     EntityHandle block = morphSceneSpawnEntity(&scene, ENTITY_BLOCK, (Vec2){0.0f, 0.0f}, (Vec2){1.0f, 1.0f});
     //sprites build
     morphAtlasAddSprite(&vk.atlas, "assets/player.png");
     morphAtlasAddSprite(&vk.atlas, "assets/block.png");
     morphAtlasBuild(&vk.atlas, vk.logicalDevice, vk.physicalDevice, vk.commandPool, vk.graphicsQueue);
 
-    scene.spriteID[player.index] = 0;
-    scene.spriteID[block.index] = 1;
+    scene.entitiesSpriteID[player.index] = 0;
+    scene.entitiesSpriteID[block.index] = 1;
 
     //main loop
     while(!glfwWindowShouldClose(window))
@@ -102,7 +102,7 @@ int main(void)
 
         morphInputUpdate(&input, window);
         
-        scene.velocity[player.index] = (Vec2){0}; 
+        scene.entitiesVelocity[player.index] = (Vec2){0}; 
 
         morphEditorUpdateInput(&editor, &input, &camera, &scene, (f32)timeState.deltaTime);
 
