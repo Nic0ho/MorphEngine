@@ -1,4 +1,6 @@
 #include "MorphArena.h"
+#include <stdio.h>
+#include <stdlib.h>
 
 u8* morphArenaAlloc(MorphArena* arena, usize bytes, usize align)
 {

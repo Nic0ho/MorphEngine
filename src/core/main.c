@@ -1,20 +1,20 @@
-#include <stdio.h>
-
 #include "MorphAtlas.h"
 #include "MorphBuffer.h"
 #include "MorphImGui.h"
 #include "MorphLog.h"
+#include "MorphProject.h"
 #include "MorphScene.h"
 #include "MorphVulkan.h"
 #include "MorphInput.h"
 #include "MorphCamera.h"
 #include "MorphTime.h"
 #include "MorphEditor.h"
-
 #include <GLFW/glfw3.h>
+#include <stdio.h>
+#include <string.h>
 
 
-int main(void)
+int main(int argc, char* argv[])
 {
     //GLFW initialization
     if (!glfwInit())
@@ -43,6 +43,14 @@ int main(void)
     MorphEditor editor = {0};
     Vec2 viewportSize = {0};
     morphLog(LOG_MESSAGE, "Editor initialized");
+
+
+    char exeDir[MAX_PATH_LEN];
+    strncpy(exeDir, argv[0], MAX_PATH_LEN);
+    char* lastSlash = strrchr(exeDir, '\\');
+    if (lastSlash) *lastSlash = '\0';
+
+    morphProjectCreate(&editor.project,"Untitled", exeDir);
 #endif
 
     //Time
@@ -182,6 +190,7 @@ int main(void)
 
     //shutdown
 #ifdef MORPH_EDITOR
+    morphProjectShutdown(&editor.project);
     morphImGuiShutdown(&vk);
     morphEditorShutdown(&editor, &vk);
 #endif

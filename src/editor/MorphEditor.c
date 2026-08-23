@@ -17,16 +17,7 @@ static const char* iconPaths[ASSET_COUNT] =
 
 void morphEditorInit(MorphEditor* editor, MorphVulkanContext* vk)
 {
-    
-
-    morphProjectCreate(&editor->project, "TestGame", "C:\\Users\\artem\\Documents"); 
     morphLogSetOutput(&editor->output);
-    editor->showOutput = true;
-    editor->showOutliner = true;
-    editor->showDetails = true;
-    editor->showTools = true;
-    editor->showContentDrawer = true;
-    editor->showViewport = true;
 
     vk->viewportDescriptorSet = morphImGuiRegisterTexture(vk->viewportTexture.sampler, vk->viewportTexture.view);
     for (u32 i = 0; i < ASSET_COUNT; i++)

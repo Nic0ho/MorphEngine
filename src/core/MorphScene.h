@@ -3,7 +3,6 @@
 #include "MorphSerializer.h"
 #include "MorphTypes.h"
 #include "MorphMath.h"
-#include "MorphBuffer.h"
 
 #define MORPH_SCENE_VERSION 1
 

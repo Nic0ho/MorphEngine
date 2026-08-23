@@ -2,7 +2,6 @@
 
 #include "MorphScene.h"
 #include "MorphTypes.h"
-#include "vulkan/vulkan.h"
 #include "MorphMath.h"
 #include "MorphBuffer.h"
 #include "MorphCamera.h"

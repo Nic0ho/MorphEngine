@@ -4,6 +4,7 @@
 #include "MorphTypes.h"
 #include <string.h>
 #include <windows.h>
+#include <shellapi.h>
 
 bool morphProjectCreate(MorphProject* project, const char* name, const char* location)
 {
@@ -79,4 +80,19 @@ bool morphProjectSave(MorphProject* project, const char* filepath)
     morphLog(LOG_MESSAGE, "Project %s saved at destination: %s", project->name, filepath);
 
     return true;
+}
+
+void morphProjectShutdown(MorphProject* project)
+{
+    if (project->temporary)
+    {
+        char path[MAX_PATH_LEN + 1] = {0};
+        strncpy(path, project->rootPath, MAX_PATH_LEN);
+
+        SHFILEOPSTRUCTA op = {0};
+        op.wFunc = FO_DELETE;
+        op.pFrom = path;
+        op.fFlags = FOF_NOCONFIRMATION | FOF_SILENT;
+        SHFileOperationA(&op);
+    }
 }

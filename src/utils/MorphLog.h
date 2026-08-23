@@ -2,8 +2,6 @@
 
 #include "MorphTypes.h"
 
-#include <stdarg.h>
-#include <stdio.h>
 
 #define MAX_CONSOLE_OUTPUT_LINES 200
 

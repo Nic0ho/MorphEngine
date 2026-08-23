@@ -1,4 +1,6 @@
 #include "MorphLog.h"
+#include <stdio.h>
+#include <stdarg.h>
 
 static MorphOutputConsoleBuffer* sOutput = NULL;
 
