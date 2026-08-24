@@ -52,6 +52,8 @@ bool morphProjectCreate(MorphProject* project, const char* name, const char* loc
 
 bool morphProjectLoad(MorphProject* project, const char* filepath)
 {
+    morphProjectShutdown(project);
+
     MorphFile file = morphFileOpenRead(filepath);
     if (!file.isValid)
         return false;
@@ -84,15 +86,17 @@ bool morphProjectSave(MorphProject* project, const char* filepath)
 
 void morphProjectShutdown(MorphProject* project)
 {
+    char path[MAX_PATH_LEN + 1] = {0};
+    strncpy(path, project->rootPath, MAX_PATH_LEN);
+
     if (project->temporary)
     {
-        char path[MAX_PATH_LEN + 1] = {0};
-        strncpy(path, project->rootPath, MAX_PATH_LEN);
-
         SHFILEOPSTRUCTA op = {0};
         op.wFunc = FO_DELETE;
         op.pFrom = path;
         op.fFlags = FOF_NOCONFIRMATION | FOF_SILENT;
         SHFileOperationA(&op);
+
+        project->temporary = false;
     }
 }

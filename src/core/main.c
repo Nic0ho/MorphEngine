@@ -38,19 +38,56 @@ int main(int argc, char* argv[])
 
     //INITIALS
 
+    //Vulkan
+    MorphVulkanContext vk = {0};
+    if (!morphVulkanInit(&vk, window))
+    {
+        printf("[VULKAN ERROR] Vulkan init fail\n");
+        glfwDestroyWindow(window);
+        glfwTerminate();
+        return 1;
+    }
+
 #ifdef MORPH_EDITOR
+    //ImGui
+    if (!morphImGuiInit(&vk, window))
+    {
+        morphLog(LOG_ERROR, "ImGui init fail!");
+        return 1;
+    }
+    morphLog(LOG_MESSAGE, "ImGui Loaded");
+
     //Editor
     MorphEditor editor = {0};
     Vec2 viewportSize = {0};
-    morphLog(LOG_MESSAGE, "Editor initialized");
-
 
     char exeDir[MAX_PATH_LEN];
     strncpy(exeDir, argv[0], MAX_PATH_LEN);
     char* lastSlash = strrchr(exeDir, '\\');
     if (lastSlash) *lastSlash = '\0';
 
-    morphProjectCreate(&editor.project,"Untitled", exeDir);
+    morphEditorInit(&editor, &vk, exeDir);
+
+    if (argc > 1)
+    {
+        morphProjectLoad(&editor.project, argv[1]);
+        editor.showOutput = true;
+        editor.showOutliner = true;
+        editor.showDetails = true;
+        editor.showTools = true;
+        editor.showContentDrawer = true;
+        editor.showViewport = true;
+
+        morphEditorAddRecent(&editor, editor.project.rootPath);
+    }
+    else
+    {
+        morphProjectCreate(&editor.project,"Untitled", exeDir);
+        editor.project.temporary = true;
+        editor.showHUB = true;
+    }
+    
+    morphLog(LOG_MESSAGE, "Editor initialized");
 #endif
 
     //Time
@@ -66,27 +103,6 @@ int main(int argc, char* argv[])
     camera.viewWidth = 5.0f;
     camera.zoomStrength = 0.25f;
     camera.sensitivity = 0.015f;
-
-    //Vulkan
-    MorphVulkanContext vk = {0};
-    if (!morphVulkanInit(&vk, window))
-    {
-        printf("[VULKAN ERROR] Vulkan init fail\n");
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        return 1;
-    }
-
-    //ImGui
-    if (!morphImGuiInit(&vk, window))
-    {
-        morphLog(LOG_ERROR, "ImGui init fail!");
-        return 1;
-    }
-#ifdef MORPH_EDITOR
-    morphEditorInit(&editor, &vk);
-#endif
-    morphLog(LOG_MESSAGE, "ImGui Loaded");
 
     // Scene
     MorphScene scene = {0};
@@ -180,6 +196,10 @@ int main(int argc, char* argv[])
             editor.viewportCursorFocused = morphImGuiGetViewportFocusedCursor();
 
             morphImGuiEndWindow();
+        }
+        if (editor.showHUB)
+        {
+            morphImGuiDrawHub(&editor);
         }
         morphVulkanDraw(&vk, window, &camera, &scene);
         

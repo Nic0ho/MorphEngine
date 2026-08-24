@@ -29,6 +29,7 @@ void morphImGuiDrawOutliner(MorphScene* scene, MorphEditor* editor);
 void morphImGuiDrawDetails(MorphScene* scene, MorphEditor* editor);
 void morphImGuiDrawViewport(VkDescriptorSet descriptorSet, u32 texWidth, u32 texHeight);
 void morphImGuiDrawMenuBar(MorphEditor* editor, f32 deltaTime);
+void morphImGuiDrawHub(MorphEditor* editor);
 
 //one line wrappers
 void morphImGuiBeginDockspace(void);

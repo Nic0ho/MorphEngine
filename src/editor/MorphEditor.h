@@ -11,6 +11,13 @@
 #include "MorphAssetType.h"
 #include "MorphVulkan.h"
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+#define MAX_RECENT 10
+
 typedef enum
 {
     SELECTION_NONE,
@@ -21,6 +28,9 @@ typedef enum
 typedef struct
 {
     MorphOutputConsoleBuffer output;
+
+    //Engine
+    char exeDir[MAX_PATH_LEN];
 
     //Project
     MorphProject project;
@@ -36,6 +46,7 @@ typedef struct
     bool showContentDrawer;
     bool showDetails;
     bool showViewport;
+    bool showHUB;
 
     //viewport
     Vec2 lastViewportSize;
@@ -46,8 +57,20 @@ typedef struct
     //outliner
     SelectionType selectionType;
     EntityHandle selectedEntity;
+
+    //recent projects
+    char recentProjects[MAX_RECENT][MAX_PATH_LEN];
+    u32 recentCount;
 } MorphEditor;
 
-void morphEditorInit(MorphEditor* editor, MorphVulkanContext* vk);
+void morphEditorInit(MorphEditor* editor, MorphVulkanContext* vk, const char* exeDir);
 void morphEditorShutdown(MorphEditor* editor, MorphVulkanContext* vk);
 void morphEditorUpdateInput(MorphEditor* editor, MorphInput* input, MorphCamera* editorCamera, MorphScene* scene, f32 deltaTime);
+void morphEditorLoadRecent(MorphEditor* editor);
+void morphEditorSaveRecent(MorphEditor* editor);
+void morphEditorAddRecent(MorphEditor* editor, const char* projectPath);
+void morphEditorRemoveRecent(MorphEditor* editor, const char* projectPath);
+
+#ifdef __cplusplus
+}
+#endif

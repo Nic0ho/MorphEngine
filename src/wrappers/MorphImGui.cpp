@@ -2,12 +2,12 @@
 #include "MorphAssetType.h"
 #include "MorphEditor.h"
 #include "MorphLog.h"
+#include "MorphProject.h"
 #include "MorphScene.h"
+#include "MorphTypes.h"
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
-#include "imgui_internal.h"
-
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
@@ -450,7 +450,7 @@ void morphImGuiDrawMenuBar(MorphEditor *editor, f32 deltaTime)
     {
         if (ImGui::BeginMenu("File"))
         {
-            ImGui::MenuItem("Open HUB", NULL, nullptr);
+            ImGui::MenuItem("Open HUB", NULL, &editor->showHUB);
             ImGui::MenuItem("Import", NULL, nullptr);
             ImGui::EndMenu();
         }
@@ -483,6 +483,108 @@ void morphImGuiDrawMenuBar(MorphEditor *editor, f32 deltaTime)
         ImGui::Text("%s", fpsText);
 
         ImGui::EndMainMenuBar();
+    }
+}
+
+typedef enum
+{
+    HUB_MAIN,
+    HUB_CREATE,
+    HUB_OPEN,
+} hubMode;
+
+static hubMode hub = HUB_MAIN;
+
+void morphImGuiDrawHub(MorphEditor* editor)
+{
+    ImGui::OpenPopup("##hub");
+    ImGui::SetNextWindowSizeConstraints(ImVec2(550.0f, 0.0f), ImVec2(550.0f, FLT_MAX));
+    if (ImGui::BeginPopupModal("##hub", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        ImGui::Text("Morph engine");
+        ImGui::TextDisabled("Recent projects");
+        ImGui::Separator();
+
+        int panelWidth = ImGui::GetContentRegionAvail().x;
+        int cols = 5;
+        if (cols < 1) cols = 1;
+
+        if (hub == HUB_MAIN)
+        {
+            if (ImGui::BeginTable("RecentGrid", cols))
+            {
+                for (int i = 0; i < MAX_RECENT; i++)
+                {
+                    ImGui::TableNextColumn();
+                    ImGui::PushID(i);
+
+                    if (i < editor->recentCount)
+                    {
+                        const char* name = strrchr(editor->recentProjects[i], '\\');
+                        name = name ? name + 1 : editor->recentProjects[i];
+
+                        if (ImGui::Button(name, ImVec2(100, 100)))
+                        {
+                            morphProjectLoad(&editor->project, editor->recentProjects[i]);
+
+                            editor->project.temporary = false;
+
+                            editor->showHUB = false;
+                            editor->showOutput = true;
+                            editor->showOutliner = true;
+                            editor->showDetails = true;
+                            editor->showTools = true;
+                            editor->showContentDrawer = true;
+                            editor->showViewport = true;
+                        }
+                    }
+                    else
+                    {
+                        ImGui::BeginDisabled();
+                        ImGui::Button("empty", ImVec2(100, 100));
+                        ImGui::EndDisabled();
+                    }
+
+                    ImGui::PopID();
+                }
+                ImGui::EndTable();
+            }
+
+            ImGui::Separator();
+            if (ImGui::Button("New Project")) { hub = HUB_CREATE; }
+            ImGui::SameLine();
+            if (ImGui::Button("Open Project")) { hub = HUB_OPEN; }
+        }
+        else if (hub == HUB_CREATE)
+        {
+            static char projectName[128] = "MyGame";
+            static char projectLocation[MAX_PATH_LEN] = "C:\\Users\\";
+
+            ImGui::InputText("Name", projectName, sizeof(projectName));
+            ImGui::InputText("Location", projectLocation, sizeof(projectLocation));
+
+            if (ImGui::Button("Create"))
+            {
+                morphProjectCreate(&editor->project, projectName, projectLocation);
+                editor->project.temporary = false;
+
+                editor->showHUB = false;
+                editor->showOutput = true;
+                editor->showOutliner = true;
+                editor->showDetails = true;
+                editor->showTools = true;
+                editor->showContentDrawer = true;
+                editor->showViewport = true;
+
+                char mproj[MAX_PATH_LEN];
+                snprintf(mproj, sizeof(mproj), "%s\\%s\\%s.mproj", projectLocation, projectName, projectName);
+                morphProjectLoad(&editor->project, mproj);
+
+                morphEditorAddRecent(editor, mproj);
+            }
+            if (ImGui::Button("Cancel")) { hub = HUB_MAIN; }
+        }
+        ImGui::EndPopup();
     }
 }
 

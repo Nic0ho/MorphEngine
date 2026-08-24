@@ -2,6 +2,10 @@
 
 #include "MorphTypes.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct
 {
     char name[128];
@@ -13,3 +17,7 @@ bool morphProjectCreate(MorphProject* project, const char* name, const char* loc
 bool morphProjectLoad(MorphProject* project, const char* filepath);
 bool morphProjectSave(MorphProject* project, const char* filepath);
 void morphProjectShutdown(MorphProject* project);
+
+#ifdef __cplusplus
+}
+#endif
