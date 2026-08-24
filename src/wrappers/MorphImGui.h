@@ -29,14 +29,15 @@ void morphImGuiDrawOutliner(MorphScene* scene, MorphEditor* editor);
 void morphImGuiDrawDetails(MorphScene* scene, MorphEditor* editor);
 void morphImGuiDrawViewport(VkDescriptorSet descriptorSet, u32 texWidth, u32 texHeight);
 void morphImGuiDrawMenuBar(MorphEditor* editor, f32 deltaTime);
-void morphImGuiDrawHub(MorphEditor* editor);
+void morphImGuiDrawHub(MorphEditor* editor, MorphCamera* camera, MorphScene* scene);
 
 //one line wrappers
 void morphImGuiBeginDockspace(void);
 void morphImGuiBeginWindow(const char* name);
 void morphImGuiEndWindow(void);
 VkDescriptorSet morphImGuiRegisterTexture(VkSampler sampler, VkImageView view);
-bool morphImGuiGetViewportFocusedCursor();
+bool morphImGuiGetViewportFocusedCursor(void);
+void morphImGuiResetContentBrowser(void);
 
 //getters
 Vec2 morphImGuiGetViewportSize(void);

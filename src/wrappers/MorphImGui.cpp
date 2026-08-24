@@ -3,8 +3,8 @@
 #include "MorphEditor.h"
 #include "MorphLog.h"
 #include "MorphProject.h"
-#include "MorphScene.h"
 #include "MorphTypes.h"
+#include "MorphPlatform.h"
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
@@ -137,7 +137,8 @@ void morphImGuiDrawOutput(MorphOutputConsoleBuffer* buffer)
     ImGui::EndChild();
 }
 
-
+void morphImGuiResetContentBrowser(void)
+{ selectedPath[0] = '\0'; }
 
 static void navigateTo(const char* newPath, bool recordHistory)
 {
@@ -495,7 +496,7 @@ typedef enum
 
 static hubMode hub = HUB_MAIN;
 
-void morphImGuiDrawHub(MorphEditor* editor)
+void morphImGuiDrawHub(MorphEditor* editor, MorphCamera* camera, MorphScene* scene)
 {
     ImGui::OpenPopup("##hub");
     ImGui::SetNextWindowSizeConstraints(ImVec2(550.0f, 0.0f), ImVec2(550.0f, FLT_MAX));
@@ -525,17 +526,7 @@ void morphImGuiDrawHub(MorphEditor* editor)
 
                         if (ImGui::Button(name, ImVec2(100, 100)))
                         {
-                            morphProjectLoad(&editor->project, editor->recentProjects[i]);
-
-                            editor->project.temporary = false;
-
-                            editor->showHUB = false;
-                            editor->showOutput = true;
-                            editor->showOutliner = true;
-                            editor->showDetails = true;
-                            editor->showTools = true;
-                            editor->showContentDrawer = true;
-                            editor->showViewport = true;
+                            morphEditorOpenProject(editor, camera, scene, editor->recentProjects[i]);
                         }
                     }
                     else
@@ -568,21 +559,19 @@ void morphImGuiDrawHub(MorphEditor* editor)
                 morphProjectCreate(&editor->project, projectName, projectLocation);
                 editor->project.temporary = false;
 
-                editor->showHUB = false;
-                editor->showOutput = true;
-                editor->showOutliner = true;
-                editor->showDetails = true;
-                editor->showTools = true;
-                editor->showContentDrawer = true;
-                editor->showViewport = true;
-
                 char mproj[MAX_PATH_LEN];
                 snprintf(mproj, sizeof(mproj), "%s\\%s\\%s.mproj", projectLocation, projectName, projectName);
-                morphProjectLoad(&editor->project, mproj);
 
-                morphEditorAddRecent(editor, mproj);
+                morphEditorOpenProject(editor, camera, scene, mproj);
             }
             if (ImGui::Button("Cancel")) { hub = HUB_MAIN; }
+        }
+        else if (hub == HUB_OPEN)
+        {
+            char path[MAX_PATH_LEN] = {0};
+            if (morphPlatformOpenFileDialog(path, MAX_PATH_LEN, "Morph project\0*.mproj\0"))
+                morphEditorOpenProject(editor, camera, scene, path);
+            hub = HUB_MAIN;
         }
         ImGui::EndPopup();
     }

@@ -4,6 +4,8 @@
 #include "MorphImGui.h"
 #include "MorphInput.h"
 #include "MorphLog.h"
+#include "MorphProject.h"
+#include "MorphScene.h"
 #include "MorphTypes.h"
 #include <string.h>
 #include <stdio.h>
@@ -16,6 +18,29 @@ static const char* iconPaths[ASSET_COUNT] =
     "assets/entity.png",
     "assets/file.png", 
 };
+
+void morphEditorOpenProject(MorphEditor* editor, MorphCamera* camera, MorphScene* scene, const char* projectTL)
+{
+    morphProjectShutdown(&editor->project);
+    morphProjectLoad(&editor->project, projectTL);
+    morphImGuiResetContentBrowser();
+
+    *scene = (MorphScene){0};
+    camera->position = (Vec2){0};
+    camera->viewWidth = 5.0f;
+
+    editor->showHUB = false;
+    editor->showOutput = true;
+    editor->showOutliner = true;
+    editor->showDetails = true;
+    editor->showTools = true;
+    editor->showContentDrawer = true;
+    editor->showViewport = true;
+    
+    editor->selectionType = SELECTION_NONE;
+
+    morphEditorAddRecent(editor, projectTL);
+}
 
 void morphEditorLoadRecent(MorphEditor* editor)
 {
@@ -54,6 +79,9 @@ void morphEditorSaveRecent(MorphEditor* editor)
 
 void morphEditorAddRecent(MorphEditor* editor, const char* projectPath)
 {
+    char localPath[MAX_PATH_LEN];
+    strncpy(localPath, projectPath, MAX_PATH_LEN);
+    
     int existingIndex = -1;
 
     for (u8 i = 0; i < editor->recentCount; i++)
@@ -73,7 +101,7 @@ void morphEditorAddRecent(MorphEditor* editor, const char* projectPath)
         memmove(&editor->recentProjects[1], &editor->recentProjects[0], (MAX_RECENT - 1) * MAX_PATH_LEN);
     }
 
-    strncpy(editor->recentProjects[0], projectPath, MAX_PATH_LEN);
+    strncpy(editor->recentProjects[0], localPath, MAX_PATH_LEN);
 
     morphEditorSaveRecent(editor);
 }

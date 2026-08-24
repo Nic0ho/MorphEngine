@@ -268,6 +268,8 @@ static void drawScene(VkCommandBuffer cmd, MorphVulkanContext* ctx, MorphCamera*
 
     Mat4 viewProj = morphCameraGetViewProjection(camera, aspectRatio);
 
+    if (ctx->atlas.texture.view == VK_NULL_HANDLE) return;
+
     VkDescriptorImageInfo imageInfo = {0};
     imageInfo.sampler = ctx->atlas.texture.sampler;
     imageInfo.imageView = ctx->atlas.texture.view;

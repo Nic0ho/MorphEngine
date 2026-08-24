@@ -1,4 +1,3 @@
-#include "MorphAtlas.h"
 #include "MorphBuffer.h"
 #include "MorphImGui.h"
 #include "MorphLog.h"
@@ -12,10 +11,16 @@
 #include <GLFW/glfw3.h>
 #include <stdio.h>
 #include <string.h>
-
+#include <windows.h>
 
 int main(int argc, char* argv[])
 {
+    char exePath[MAX_PATH_LEN];
+    GetModuleFileNameA(NULL, exePath, MAX_PATH_LEN);
+    char* slash = strrchr(exePath, '\\');
+    if (slash) *slash = '\0';
+    SetCurrentDirectoryA(exePath);
+
     //GLFW initialization
     if (!glfwInit())
     {
@@ -48,6 +53,15 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    // Camera
+    MorphCamera camera = {0};
+    camera.viewWidth = 5.0f;
+    camera.zoomStrength = 0.25f;
+    camera.sensitivity = 0.015f;
+
+    // Scene
+    MorphScene scene = {0};
+
 #ifdef MORPH_EDITOR
     //ImGui
     if (!morphImGuiInit(&vk, window))
@@ -70,15 +84,7 @@ int main(int argc, char* argv[])
 
     if (argc > 1)
     {
-        morphProjectLoad(&editor.project, argv[1]);
-        editor.showOutput = true;
-        editor.showOutliner = true;
-        editor.showDetails = true;
-        editor.showTools = true;
-        editor.showContentDrawer = true;
-        editor.showViewport = true;
-
-        morphEditorAddRecent(&editor, editor.project.rootPath);
+        morphEditorOpenProject(&editor, &camera, &scene, argv[1]);
     }
     else
     {
@@ -98,25 +104,6 @@ int main(int argc, char* argv[])
     glfwSetWindowUserPointer(window, &input);
     glfwSetScrollCallback(window, morphScrollCallback);
 
-    // Camera
-    MorphCamera camera = {0};
-    camera.viewWidth = 5.0f;
-    camera.zoomStrength = 0.25f;
-    camera.sensitivity = 0.015f;
-
-    // Scene
-    MorphScene scene = {0};
-    
-    EntityHandle player = morphSceneSpawnEntity(&scene, ENTITY_PLAYER, (Vec2){4.0f, 0.0f}, (Vec2){1.0f, 1.0f});
-    EntityHandle block = morphSceneSpawnEntity(&scene, ENTITY_BLOCK, (Vec2){0.0f, 0.0f}, (Vec2){1.0f, 1.0f});
-    //sprites build
-    morphAtlasAddSprite(&vk.atlas, "assets/player.png");
-    morphAtlasAddSprite(&vk.atlas, "assets/block.png");
-    morphAtlasBuild(&vk.atlas, vk.logicalDevice, vk.physicalDevice, vk.commandPool, vk.graphicsQueue);
-
-    scene.entitiesSpriteID[player.index] = 0;
-    scene.entitiesSpriteID[block.index] = 1;
-
     //main loop
     while(!glfwWindowShouldClose(window))
     {
@@ -125,8 +112,6 @@ int main(int argc, char* argv[])
         morphTimeUpdate(&timeState);
 
         morphInputUpdate(&input, window);
-        
-        scene.entitiesVelocity[player.index] = (Vec2){0}; 
 
         morphEditorUpdateInput(&editor, &input, &camera, &scene, (f32)timeState.deltaTime);
 
@@ -199,7 +184,7 @@ int main(int argc, char* argv[])
         }
         if (editor.showHUB)
         {
-            morphImGuiDrawHub(&editor);
+            morphImGuiDrawHub(&editor, &camera, &scene);
         }
         morphVulkanDraw(&vk, window, &camera, &scene);
         

@@ -24,10 +24,14 @@ add_executable(MorphEngine
     #editor
     src/editor/MorphAssetType.c
     src/editor/MorphEditor.c
+    #platform
+    src/platform/MorphPlatform.c
     #rendering
     src/rendering/MorphAtlas.c
     src/rendering/MorphBuffer.c
     src/rendering/MorphVulkan.c
+    #resources
+    resources/MorphEngine.rc
     #utils
     src/utils/MorphArena.c
     src/utils/MorphLog.c
@@ -45,6 +49,11 @@ add_executable(MorphEngine
 
 option(MORPH_EDITOR "Build with editor" ON)
 
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set_target_properties(MorphEngine PROPERTIES WIN32_EXECUTABLE TRUE)
+    target_link_options(MorphEngine PRIVATE -Xlinker /entry:mainCRTStartup)
+endif()
+
 if(MORPH_EDITOR)
     target_compile_definitions(MorphEngine PRIVATE _CRT_SECURE_NO_WARNINGS MORPH_EDITOR)
 endif()
@@ -60,6 +69,7 @@ target_include_directories(MorphEngine PRIVATE
     # SOURCE   -----------
     src/core      #core
     src/editor    #editor
+    src/platform  #platform
     src/utils     #utils
     src/rendering #rendering
     src/wrappers  #wrappers
@@ -75,4 +85,5 @@ target_link_libraries(MorphEngine PRIVATE
     gdi32
     user32
     shell32
+    comdlg32
 )
