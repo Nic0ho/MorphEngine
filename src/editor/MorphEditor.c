@@ -21,7 +21,9 @@ static const char* iconPaths[ASSET_COUNT] =
 
 void morphEditorOpenProject(MorphEditor* editor, MorphCamera* camera, MorphScene* scene, const char* projectTL)
 {
-    morphProjectShutdown(&editor->project);
+    if (!editor->project.temporary)
+        morphProjectShutdown(&editor->project);
+
     morphProjectLoad(&editor->project, projectTL);
     morphImGuiResetContentBrowser();
 
@@ -79,6 +81,11 @@ void morphEditorSaveRecent(MorphEditor* editor)
 
 void morphEditorAddRecent(MorphEditor* editor, const char* projectPath)
 {
+    char untitledPath[MAX_PATH_LEN];
+    snprintf(untitledPath, sizeof(untitledPath), "%s\\Untitled\\Untitled.mproj", editor->exeDir);
+    
+    if (strcmp(projectPath, untitledPath) == 0) return; 
+
     char localPath[MAX_PATH_LEN];
     strncpy(localPath, projectPath, MAX_PATH_LEN);
     

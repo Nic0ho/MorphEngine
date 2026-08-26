@@ -87,3 +87,12 @@ target_link_libraries(MorphEngine PRIVATE
     shell32
     comdlg32
 )
+
+add_custom_command(TARGET MorphEngine POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/shaders $<TARGET_FILE_DIR:MorphEngine>/shaders
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:MorphEngine>/assets
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/tools $<TARGET_FILE_DIR:MorphEngine>/tools
+)

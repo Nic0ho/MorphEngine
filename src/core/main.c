@@ -3,23 +3,30 @@
 #include "MorphLog.h"
 #include "MorphProject.h"
 #include "MorphScene.h"
+#include "MorphTypes.h"
 #include "MorphVulkan.h"
 #include "MorphInput.h"
 #include "MorphCamera.h"
 #include "MorphTime.h"
 #include "MorphEditor.h"
+#include "MorphPlatform.h"
 #include <GLFW/glfw3.h>
+#include <windows.h>
 #include <stdio.h>
 #include <string.h>
-#include <windows.h>
+#include "stb_image.h"
 
 int main(int argc, char* argv[])
 {
-    char exePath[MAX_PATH_LEN];
-    GetModuleFileNameA(NULL, exePath, MAX_PATH_LEN);
-    char* slash = strrchr(exePath, '\\');
-    if (slash) *slash = '\0';
-    SetCurrentDirectoryA(exePath);
+#ifdef MORPH_EDITOR
+    char exeDir[MAX_PATH_LEN];
+    GetModuleFileNameA(NULL, exeDir, MAX_PATH_LEN);
+    
+    char* lastSlash = strrchr(exeDir, '\\');
+    if (lastSlash) *lastSlash = '\0';
+
+    SetCurrentDirectoryA(exeDir);
+#endif
 
     //GLFW initialization
     if (!glfwInit())
@@ -75,12 +82,20 @@ int main(int argc, char* argv[])
     MorphEditor editor = {0};
     Vec2 viewportSize = {0};
 
-    char exeDir[MAX_PATH_LEN];
-    strncpy(exeDir, argv[0], MAX_PATH_LEN);
-    char* lastSlash = strrchr(exeDir, '\\');
-    if (lastSlash) *lastSlash = '\0';
-
     morphEditorInit(&editor, &vk, exeDir);
+
+    char associated[MAX_PATH_LEN];
+    snprintf(associated, sizeof(associated), "%s\\morph.registered", exeDir);
+    if (GetFileAttributesA(associated) == INVALID_FILE_ATTRIBUTES)
+    {
+        char fullExePath[MAX_PATH_LEN];
+        snprintf(fullExePath, sizeof(fullExePath), "%s\\MorphEngine.exe", exeDir);
+        morphPlatformRegisterFileAssociation(fullExePath);
+
+        //create flag file
+        FILE* f = fopen(associated, "w");
+        if (f) fclose(f);
+    }
 
     if (argc > 1)
     {
@@ -88,7 +103,11 @@ int main(int argc, char* argv[])
     }
     else
     {
-        morphProjectCreate(&editor.project,"Untitled", exeDir);
+        char untitledDir[MAX_PATH_LEN];
+        snprintf(untitledDir, sizeof(untitledDir), "%s\\Untitled", exeDir);
+        morphPlatformRemoveDirectory(untitledDir);
+
+        morphProjectCreate(&editor.project,"Untitled", exeDir, exeDir);
         editor.project.temporary = true;
         editor.showHUB = true;
     }

@@ -1,7 +1,6 @@
 #include "MorphImGui.h"
 #include "MorphAssetType.h"
 #include "MorphEditor.h"
-#include "MorphLog.h"
 #include "MorphProject.h"
 #include "MorphTypes.h"
 #include "MorphPlatform.h"
@@ -553,17 +552,30 @@ void morphImGuiDrawHub(MorphEditor* editor, MorphCamera* camera, MorphScene* sce
 
             ImGui::InputText("Name", projectName, sizeof(projectName));
             ImGui::InputText("Location", projectLocation, sizeof(projectLocation));
-
+            ImGui::SameLine();
+            if (ImGui::Button("..."))
+            {
+                char folder[MAX_PATH_LEN] = {0};
+                if (morphPlatformOpenFolderDialog(folder, MAX_PATH_LEN))
+                    strncpy(projectLocation, folder, sizeof(projectLocation));
+            }
             if (ImGui::Button("Create"))
             {
-                morphProjectCreate(&editor->project, projectName, projectLocation);
-                editor->project.temporary = false;
-
                 char mproj[MAX_PATH_LEN];
-                snprintf(mproj, sizeof(mproj), "%s\\%s\\%s.mproj", projectLocation, projectName, projectName);
-
-                morphEditorOpenProject(editor, camera, scene, mproj);
-            }
+                
+                if (morphProjectCreate(&editor->project, projectName, projectLocation, editor->exeDir))
+                {
+                    snprintf(mproj, sizeof(mproj), "%s\\%s\\%s.mproj", projectLocation, projectName, projectName);
+                    morphEditorOpenProject(editor, camera, scene, mproj);
+                }
+                else
+                {   
+                    morphProjectCreate(&editor->project, "Untitled", editor->exeDir, editor->exeDir);
+                    editor->project.temporary = true;
+                    editor->showHUB = true;
+                }
+                hub = HUB_MAIN;
+            }            
             if (ImGui::Button("Cancel")) { hub = HUB_MAIN; }
         }
         else if (hub == HUB_OPEN)
