@@ -78,9 +78,23 @@ bool morphProjectSave(MorphProject* project, const char* filepath)
     if (!file.isValid)
         return false;
 
-    morphFileWrite(&file, project->name, 1, 128);
-    morphFileWrite(&file, project->rootPath, 1, MAX_PATH_LEN);
-    morphFileWrite(&file, project->enginePath, 1, MAX_PATH_LEN);
+    strncpy(project->rootPath, filepath, MAX_PATH_LEN);
+    char* lastSlash = strrchr(project->rootPath, '\\');
+    if (lastSlash) *lastSlash = '\0';
+
+    if (morphFileRead(&file, project->name, 1, 128) == 0)
+    {
+        morphLog(LOG_ERROR, "Failed to read project name from .mproj");
+        morphFileClose(&file);
+        return false;
+    }
+
+    if (morphFileRead(&file, project->enginePath, 1, MAX_PATH_LEN) == 0)
+    {
+        morphLog(LOG_ERROR, "Failed to read engine path from .mproj");
+        morphFileClose(&file);
+        return false;
+    }
 
     morphFileClose(&file);
     morphLog(LOG_MESSAGE, "Project %s saved at destination: %s", project->name, filepath);
