@@ -62,9 +62,23 @@ bool morphProjectLoad(MorphProject* project, const char* filepath)
     if (!file.isValid)
         return false;
 
-    morphFileRead(&file, project->name, 1, 128);
-    morphFileRead(&file, project->rootPath, 1, MAX_PATH_LEN);
-    morphFileRead(&file, project->enginePath, 1, MAX_PATH_LEN);
+    strncpy(project->rootPath, filepath, MAX_PATH_LEN);
+    char* lastSlash = strrchr(project->rootPath, '\\');
+    if (lastSlash) *lastSlash = '\0';
+
+    if (morphFileRead(&file, project->name, 1, 128) == 0)
+    {
+        morphLog(LOG_ERROR, "Failed to read project name from %s!", filepath);
+        morphFileClose(&file);
+        return false;
+    }
+
+    if (morphFileRead(&file, project->enginePath, 1, MAX_PATH_LEN) == 0)
+    {
+        morphLog(LOG_ERROR, "Failed to read engine path from %s!", filepath);
+        morphFileClose(&file);
+        return false;
+    }
 
     morphFileClose(&file);
     morphLog(LOG_MESSAGE, "Project loaded: %s from %s", project->name, project->rootPath);
@@ -78,20 +92,17 @@ bool morphProjectSave(MorphProject* project, const char* filepath)
     if (!file.isValid)
         return false;
 
-    strncpy(project->rootPath, filepath, MAX_PATH_LEN);
-    char* lastSlash = strrchr(project->rootPath, '\\');
-    if (lastSlash) *lastSlash = '\0';
-
-    if (morphFileRead(&file, project->name, 1, 128) == 0)
+    
+    if (!morphFileWrite(&file, project->name, 1, 128))
     {
-        morphLog(LOG_ERROR, "Failed to read project name from .mproj");
+        morphLog(LOG_ERROR, "Failed to write project name to %s!", filepath);
         morphFileClose(&file);
         return false;
     }
 
-    if (morphFileRead(&file, project->enginePath, 1, MAX_PATH_LEN) == 0)
+    if (!morphFileWrite(&file, project->enginePath, 1, MAX_PATH_LEN))
     {
-        morphLog(LOG_ERROR, "Failed to read engine path from .mproj");
+        morphLog(LOG_ERROR, "Failed to write engine path to %s!", filepath);
         morphFileClose(&file);
         return false;
     }
