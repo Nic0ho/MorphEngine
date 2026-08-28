@@ -31,6 +31,7 @@ typedef struct
 
     //Engine
     char exeDir[MAX_PATH_LEN];
+    char imguiIniPath[MAX_PATH_LEN];
 
     //Project
     MorphProject project;

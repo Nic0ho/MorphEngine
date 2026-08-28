@@ -27,6 +27,14 @@ bool morphProjectCreate(MorphProject* project, const char* name, const char* loc
         return false;
     }
 
+    char defaultIni[MAX_PATH_LEN];
+    snprintf(defaultIni, sizeof(defaultIni), "%s\\imgui.ini", enginePath);
+
+    char projectIni[MAX_PATH_LEN];
+    snprintf(projectIni, sizeof(projectIni), "%s\\imgui.ini", engineContentPath);
+
+    morphPlatformCopyFile(defaultIni, projectIni);
+
     char projectContentPath[MAX_PATH_LEN];
     snprintf(projectContentPath, sizeof(projectContentPath), "%s\\%s\\Project", location, name);
 

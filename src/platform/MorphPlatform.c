@@ -65,7 +65,7 @@ bool morphPlatformRegisterFileAssociation(const char* exePath)
     RegCreateKeyExA(HKEY_CLASSES_ROOT, 
         "MorphEngine.Project\\DefaultIcon", 0, NULL,
         REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &key, NULL);
-    snprintf(command, sizeof(command), "%s,0", exePath);
+    snprintf(command, sizeof(command), "\"%s\",0", exePath);
     RegSetValueExA(key, NULL, 0, REG_SZ, (BYTE*)command, strlen(command)+1);
     RegCloseKey(key);
 
@@ -81,3 +81,6 @@ bool morphPlatformRegisterFileAssociation(const char* exePath)
     SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, NULL, NULL);
     return true;
 }
+
+bool morphPlatformCopyFile(const char* src, const char* dest)
+{ return CopyFileA(src, dest, FALSE) != 0; }

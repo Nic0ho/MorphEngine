@@ -55,6 +55,13 @@ bool morphSceneLoad(MorphScene* scene, const char* filepath)
         return false;
     }
 
+    if (header.entityCount > MAX_ENTITIES)
+    {
+        morphLog(LOG_ERROR, "Scene entity count (%u) exceeds maximum engine limit (%u)!", header.entityCount, MAX_ENTITIES);
+        morphFileClose(&file);
+        return false;
+    }
+
     if (!morphFileRead(&file, &scene->entitiesType, sizeof(EntityType), header.entityCount)            ||
         !morphFileRead(&file, &scene->entitiesPosition, sizeof(Vec2), header.entityCount)              ||
         !morphFileRead(&file, &scene->entitiesRotation, sizeof(f32), header.entityCount)               ||

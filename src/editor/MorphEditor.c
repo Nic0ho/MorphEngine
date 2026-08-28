@@ -27,6 +27,9 @@ void morphEditorOpenProject(MorphEditor* editor, MorphCamera* camera, MorphScene
     morphProjectLoad(&editor->project, projectTL);
     morphImGuiResetContentBrowser();
 
+    snprintf(editor->imguiIniPath, MAX_PATH_LEN, "%s\\Engine\\imgui.ini", editor->project.rootPath);
+    morphImGuiSetIniPath(editor->imguiIniPath);
+
     *scene = (MorphScene){0};
     camera->position = (Vec2){0};
     camera->viewWidth = 5.0f;
@@ -164,7 +167,9 @@ void morphEditorUpdateInput(MorphEditor* editor, MorphInput* input, MorphCamera*
     //file
     if (morphInputIsKeyDown(input, GLFW_KEY_LEFT_CONTROL) && morphInputIsKeyPressed(input, GLFW_KEY_S))
     {
-        morphSceneSave(scene, "test_level.mrph");
+        char savePath[MAX_PATH_LEN];
+        snprintf(savePath, sizeof(savePath), "%s\\Project\\test_level.mrph", editor->project.rootPath);
+        morphSceneSave(scene, savePath);
     }
 
     //viewport

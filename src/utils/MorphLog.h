@@ -2,6 +2,9 @@
 
 #include "MorphTypes.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define MAX_CONSOLE_OUTPUT_LINES 200
 
@@ -22,3 +25,7 @@ typedef struct
 
 void morphLog(LogType type, const char* fmt, ...);
 void morphLogSetOutput(MorphOutputConsoleBuffer* buffer);
+
+#ifdef __cplusplus
+}
+#endif

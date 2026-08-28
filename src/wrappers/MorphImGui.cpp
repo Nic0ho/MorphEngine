@@ -7,6 +7,7 @@
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <stdlib.h>
@@ -44,6 +45,7 @@ bool morphImGuiInit(MorphVulkanContext *ctx, GLFWwindow *window)
     ImGui::CreateContext();
 
     ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = NULL;
 
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
@@ -71,6 +73,31 @@ bool morphImGuiInit(MorphVulkanContext *ctx, GLFWwindow *window)
     ImGui_ImplVulkan_Init(&initInfo);
 
     return true;
+}
+
+void morphImGuiSetIniPath(const char* path)
+{
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = path;
+
+    wchar_t widePath[MAX_PATH_LEN];
+    MultiByteToWideChar(CP_ACP, 0, path, -1, widePath, MAX_PATH_LEN);
+
+    HANDLE hFile = CreateFileW(widePath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (hFile != INVALID_HANDLE_VALUE)
+    {
+        DWORD size = GetFileSize(hFile, NULL);
+        char* buf = (char*)malloc(size + 1);
+        DWORD bytesRead = 0;
+        ReadFile(hFile, buf, size, &bytesRead, NULL);
+        CloseHandle(hFile);
+        buf[bytesRead] = '\0';
+        ImGui::LoadIniSettingsFromMemory(buf, bytesRead);
+        free(buf);
+        morphLog(LOG_MESSAGE, "Project layout loaded from: %s", path);
+    }
+    else morphLog(LOG_MESSAGE, "No saved project layout found: %s", path);
 }
 
 void morphImGuiNewFrame(void)
@@ -573,6 +600,9 @@ void morphImGuiDrawHub(MorphEditor* editor, MorphCamera* camera, MorphScene* sce
                     morphProjectCreate(&editor->project, "Untitled", editor->exeDir, editor->exeDir);
                     editor->project.temporary = true;
                     editor->showHUB = true;
+                    
+                    snprintf(editor->imguiIniPath, MAX_PATH_LEN, "%s\\Untitled\\Engine\\imgui.ini", editor->exeDir);
+                    morphImGuiSetIniPath(editor->imguiIniPath);
                 }
                 hub = HUB_MAIN;
             }            

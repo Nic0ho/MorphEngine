@@ -19,6 +19,7 @@ void morphImGuiNewFrame(void);
 void morphImGuiEndFrame(void);
 void morphImGuiRender(VkCommandBuffer cmd);
 void morphImGuiShutdown(MorphVulkanContext* ctx);
+void morphImGuiSetIniPath(const char* path);
 
 //panels
 void morphImGuiDrawOutput(MorphOutputConsoleBuffer* buffer);

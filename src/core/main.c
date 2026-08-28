@@ -1,30 +1,75 @@
-#include "MorphBuffer.h"
 #include "MorphImGui.h"
-#include "MorphLog.h"
-#include "MorphProject.h"
-#include "MorphScene.h"
-#include "MorphTypes.h"
 #include "MorphVulkan.h"
-#include "MorphInput.h"
-#include "MorphCamera.h"
 #include "MorphTime.h"
-#include "MorphEditor.h"
 #include "MorphPlatform.h"
 #include <GLFW/glfw3.h>
 #include <windows.h>
-#include <stdio.h>
-#include <string.h>
+#include <shellapi.h>
+
+#ifdef MORPH_EDITOR
+static bool morphEngineRoute(const char* projectFile, const char* exeDir)
+{
+    FILE* f = fopen(projectFile, "rb");
+    if (!f)
+    {
+        char msg[512];
+        snprintf(msg, sizeof(msg), "Router failed to open .mproj file!\nPath: %s", projectFile);
+        MessageBoxA(NULL, msg, "MorphEngine Router Error", MB_ICONERROR);
+        return false;
+    }
+ 
+    char projectName[128];
+    char targetEngineDir[MAX_PATH_LEN];
+    fread(projectName, 1, 128, f);
+    fread(targetEngineDir, 1, MAX_PATH_LEN, f);
+    fclose(f);
+    targetEngineDir[MAX_PATH_LEN - 1] = '\0';
+ 
+    if (_stricmp(exeDir, targetEngineDir) == 0)
+        return false;
+ 
+    char targetExe[MAX_PATH_LEN];
+    snprintf(targetExe, sizeof(targetExe), "%s\\MorphEngine.exe", targetEngineDir);
+ 
+    char quotedArgs[MAX_PATH_LEN + 4];
+    snprintf(quotedArgs, sizeof(quotedArgs), "\"%s\"", projectFile);
+ 
+    HINSTANCE result = ShellExecuteA(NULL, "open", targetExe, quotedArgs, NULL, SW_SHOWDEFAULT);
+    if ((intptr_t)result <= 32)
+    {
+        char msg[512];
+        snprintf(msg, sizeof(msg), "Router failed to launch target engine!\nTarget: %s\nCode: %lld", targetExe, (long long)result);
+        MessageBoxA(NULL, msg, "MorphEngine Router Error", MB_ICONERROR);
+    }
+ 
+    return true;
+}
+#endif
+
 
 int main(int argc, char* argv[])
 {
 #ifdef MORPH_EDITOR
     char exeDir[MAX_PATH_LEN];
     GetModuleFileNameA(NULL, exeDir, MAX_PATH_LEN);
-    
     char* lastSlash = strrchr(exeDir, '\\');
     if (lastSlash) *lastSlash = '\0';
-
+    
+    char projectFile[MAX_PATH_LEN] = {0};
+    if (argc > 1)
+    {
+        char cleanArg[MAX_PATH_LEN];
+        strncpy(cleanArg, argv[1], MAX_PATH_LEN);
+        if (cleanArg[0] == '"') memmove(cleanArg, cleanArg + 1, strlen(cleanArg));
+        size_t len = strlen(cleanArg);
+        if (len > 0 && cleanArg[len - 1] == '"') cleanArg[len - 1] = '\0';
+        GetFullPathNameA(cleanArg, MAX_PATH_LEN, projectFile, NULL);
+    }
+ 
     SetCurrentDirectoryA(exeDir);
+ 
+    if (argc > 1 && morphEngineRoute(projectFile, exeDir))
+        return 0;
 #endif
 
     //GLFW initialization
@@ -83,32 +128,34 @@ int main(int argc, char* argv[])
 
     morphEditorInit(&editor, &vk, exeDir);
 
-    char associated[MAX_PATH_LEN];
-    snprintf(associated, sizeof(associated), "%s\\morph.registered", exeDir);
-    if (GetFileAttributesA(associated) == INVALID_FILE_ATTRIBUTES)
+    char associatedFlag[MAX_PATH_LEN];
+    snprintf(associatedFlag, sizeof(associatedFlag), "%s\\morph.registered", exeDir);
+    if (GetFileAttributesA(associatedFlag) == INVALID_FILE_ATTRIBUTES)
     {
         char fullExePath[MAX_PATH_LEN];
         snprintf(fullExePath, sizeof(fullExePath), "%s\\MorphEngine.exe", exeDir);
         morphPlatformRegisterFileAssociation(fullExePath);
 
-        //create flag file
-        FILE* f = fopen(associated, "w");
+        FILE* f = fopen(associatedFlag, "w");
         if (f) fclose(f);
     }
 
     if (argc > 1)
     {
-        morphEditorOpenProject(&editor, &camera, &scene, argv[1]);
+        morphEditorOpenProject(&editor, &camera, &scene, projectFile);
     }
     else
     {
         char untitledDir[MAX_PATH_LEN];
         snprintf(untitledDir, sizeof(untitledDir), "%s\\Untitled", exeDir);
         morphPlatformRemoveDirectory(untitledDir);
-
-        morphProjectCreate(&editor.project,"Untitled", exeDir, exeDir);
+ 
+        morphProjectCreate(&editor.project, "Untitled", exeDir, exeDir);
         editor.project.temporary = true;
         editor.showHUB = true;
+ 
+        snprintf(editor.imguiIniPath, MAX_PATH_LEN, "%s\\Untitled\\Engine\\imgui.ini", exeDir);
+        morphImGuiSetIniPath(editor.imguiIniPath);
     }
     
     morphLog(LOG_MESSAGE, "Editor initialized");
@@ -131,11 +178,11 @@ int main(int argc, char* argv[])
 
         morphInputUpdate(&input, window);
 
-        morphEditorUpdateInput(&editor, &input, &camera, &scene, (f32)timeState.deltaTime);
-
         morphSceneUpdateMovement(&scene, (f32)timeState.deltaTime);
         
     #ifdef MORPH_EDITOR
+        morphEditorUpdateInput(&editor, &input, &camera, &scene, (f32)timeState.deltaTime);
+        
         morphImGuiNewFrame();
         morphImGuiBeginDockspace();
         morphImGuiDrawMenuBar(&editor, (f32)timeState.deltaTime);

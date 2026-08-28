@@ -12,6 +12,9 @@ bool morphPlatformOpenFolderDialog(char* outPath, u32 outSize);
 bool morphPlatformRemoveDirectory(const char* path);
 bool morphPlatformRegisterFileAssociation(const char* exePath);
 
+//operations
+bool morphPlatformCopyFile(const char* src, const char* dest);
+
 #ifdef __cplusplus
 }
 #endif
