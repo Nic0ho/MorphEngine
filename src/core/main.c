@@ -1,3 +1,4 @@
+#include "MorphEditor.h"
 #include "MorphImGui.h"
 #include "MorphVulkan.h"
 #include "MorphTime.h"
@@ -81,6 +82,7 @@ int main(int argc, char* argv[])
 
     //block OpenGL
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 
     //window creation
     //                   win create func |   res     |   win name   |     ?      |
@@ -109,9 +111,6 @@ int main(int argc, char* argv[])
     camera.viewWidth = 5.0f;
     camera.zoomStrength = 0.25f;
     camera.sensitivity = 0.015f;
-
-    // Scene
-    MorphScene scene = {0};
 
 #ifdef MORPH_EDITOR
     //ImGui
@@ -142,7 +141,7 @@ int main(int argc, char* argv[])
 
     if (argc > 1)
     {
-        morphEditorOpenProject(&editor, &camera, &scene, projectFile);
+        morphEditorOpenProject(&editor, &camera, projectFile);
     }
     else
     {
@@ -177,15 +176,14 @@ int main(int argc, char* argv[])
         morphTimeUpdate(&timeState);
 
         morphInputUpdate(&input, window);
-
-        morphSceneUpdateMovement(&scene, (f32)timeState.deltaTime);
         
     #ifdef MORPH_EDITOR
-        morphEditorUpdateInput(&editor, &input, &camera, &scene, (f32)timeState.deltaTime);
-        
+        morphSceneUpdateMovement(morphEditorGetActiveScene(&editor), (f32)timeState.deltaTime);
+        morphEditorUpdateInput(&editor, &input, &camera, morphEditorGetActiveScene(&editor), (f32)timeState.deltaTime);
+
         morphImGuiNewFrame();
         morphImGuiBeginDockspace();
-        morphImGuiDrawMenuBar(&editor, (f32)timeState.deltaTime);
+        morphImGuiDrawMenuBar(&editor, window, (f32)timeState.deltaTime);
         if (editor.showOutput)
         {
             morphImGuiBeginWindow("Output");
@@ -210,13 +208,13 @@ int main(int argc, char* argv[])
         if (editor.showOutliner)
         {
             morphImGuiBeginWindow("Outliner");
-            morphImGuiDrawOutliner(&scene, &editor);
+            morphImGuiDrawOutliner(&editor);
             morphImGuiEndWindow();
         }
         if (editor.showDetails)
         {
             morphImGuiBeginWindow("Details");
-            morphImGuiDrawDetails(&scene, &editor);
+            morphImGuiDrawDetails(&editor);
             morphImGuiEndWindow();
         }
         if (editor.showViewport)
@@ -249,12 +247,13 @@ int main(int argc, char* argv[])
         }
         if (editor.showHUB)
         {
-            morphImGuiDrawHub(&editor, &camera, &scene);
+            morphImGuiDrawHub(&editor, &camera);
         }
-        morphVulkanDraw(&vk, window, &camera, &scene);
+        morphVulkanDraw(&vk, window, &camera, morphEditorGetActiveScene(&editor));
         
     #else
-        morphVulkanDraw(&vk, window, &camera, &scene);
+        MorphScene runtimeScene = {0};
+        morphVulkanDraw(&vk, window, &camera, &runtimeScene);
     #endif
     }
 

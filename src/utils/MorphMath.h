@@ -3,6 +3,8 @@
 #include "MorphTypes.h"
 #include "math.h"
 
+#define MORPH_PI   3.14159265358979323846f
+
 //VECTORS
 typedef struct { f32 x, y; } Vec2;
 typedef struct { f32 x, y, z; } Vec3;
@@ -29,6 +31,15 @@ static inline Vec2 vec2Sub(Vec2 a, Vec2 b)
 //multiply
 static inline Vec2 vec2Scale(Vec2 v, f32 s)
 { return (Vec2){v.x * s, v.y * s}; }
+
+//rotate (angle in radians)
+static inline Vec2 vec2Rotate(Vec2 v, f32 angle)
+{
+    f32 s = sinf(angle);
+    f32 c = cosf(angle);
+    return (Vec2){v.x * c - v.y * s, v.x * s + v.y * c};
+}
+
 
 //VEC3 OPERATIONS ------------
 //add

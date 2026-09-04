@@ -19,17 +19,30 @@ static const char* iconPaths[ASSET_COUNT] =
     "assets/file.png", 
 };
 
-void morphEditorOpenProject(MorphEditor* editor, MorphCamera* camera, MorphScene* scene, const char* projectTL)
+void morphEditorOpenProject(MorphEditor* editor, MorphCamera* camera, const char* projectTL)
 {
+    editor->tabs[0].type  = TAB_SCENE;
+    editor->tabs[0].open = true;
+    editor->tabs[0].hasPath = false;
+    editor->tabs[0].dirty = false;
+    snprintf(editor->tabs[0].title, 64, "Untitled Scene");
+    editor->tabCount = 1;
+    editor->activeTab = 0;
+
     if (!editor->project.temporary)
         morphProjectShutdown(&editor->project);
 
-    morphProjectLoad(&editor->project, projectTL);
+    if (!morphProjectLoad(&editor->project, projectTL))
+    {
+        morphLog(LOG_ERROR, "Failed to load project: %s!", projectTL);
+        return;
+    }
     morphImGuiResetContentBrowser();
 
     snprintf(editor->imguiIniPath, MAX_PATH_LEN, "%s\\Engine\\imgui.ini", editor->project.rootPath);
     morphImGuiSetIniPath(editor->imguiIniPath);
 
+    MorphScene *scene = morphEditorGetActiveScene(editor);
     *scene = (MorphScene){0};
     camera->position = (Vec2){0};
     camera->viewWidth = 5.0f;

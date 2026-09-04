@@ -17,6 +17,7 @@ extern "C"
 #endif
 
 #define MAX_RECENT 10
+#define MAX_TABS  16
 
 typedef enum
 {
@@ -24,6 +25,31 @@ typedef enum
     SELECTION_SCENE,
     SELECTION_ENTITY,
 } SelectionType;
+
+typedef enum
+{
+    TAB_SCENE,
+    TAB_TEXTURE,
+    TAB_MATERIAL,
+    TAB_SPRITE,
+    TAB_PREFAB,
+} MorphTabType;
+
+typedef union
+{
+    MorphScene scene;
+} MorphTabContent;
+
+typedef struct
+{
+    MorphTabType type;
+    MorphTabContent content;
+    char filepath[MAX_PATH_LEN];
+    char title[64];
+    bool hasPath;
+    bool dirty;
+    bool open;
+} MorphEditorTab;
 
 typedef struct
 {
@@ -39,6 +65,11 @@ typedef struct
     //Icons
     MorphTexture assetIcons[ASSET_COUNT];
     VkDescriptorSet assetIconIds[ASSET_COUNT];
+
+    //Tabs
+    MorphEditorTab tabs[MAX_TABS];
+    u32 tabCount;
+    u32 activeTab;
 
     //window visibility
     bool showOutput;
@@ -66,12 +97,16 @@ typedef struct
 
 void morphEditorInit(MorphEditor* editor, MorphVulkanContext* vk, const char* exeDir);
 void morphEditorShutdown(MorphEditor* editor, MorphVulkanContext* vk);
-void morphEditorOpenProject(MorphEditor* editor, MorphCamera* camera, MorphScene* scene, const char* projectTL);
+void morphEditorOpenProject(MorphEditor* editor, MorphCamera* camera, const char* projectTL);
 void morphEditorUpdateInput(MorphEditor* editor, MorphInput* input, MorphCamera* editorCamera, MorphScene* scene, f32 deltaTime);
 void morphEditorLoadRecent(MorphEditor* editor);
 void morphEditorSaveRecent(MorphEditor* editor);
 void morphEditorAddRecent(MorphEditor* editor, const char* projectPath);
 void morphEditorRemoveRecent(MorphEditor* editor, const char* projectPath);
+
+//getters
+static inline MorphScene* morphEditorGetActiveScene(MorphEditor* editor)
+{ return &editor->tabs[editor->activeTab].content.scene; }
 
 #ifdef __cplusplus
 }

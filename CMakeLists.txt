@@ -38,6 +38,9 @@ add_executable(MorphEngine
     src/utils/MorphTime.c
     #wrappers
     src/wrappers/MorphImGui.cpp
+    src/wrappers/MorphImGuiTitleBar.cpp
+    src/wrappers/MorphImGuiPanels.cpp
+    src/wrappers/MorphImGuiHub.cpp
     src/wrappers/MorphStbImage.c
     #imgui
     external/imgui/imgui.cpp
