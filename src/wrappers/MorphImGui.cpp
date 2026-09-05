@@ -50,7 +50,7 @@ bool morphImGuiInit(MorphVulkanContext* ctx, GLFWwindow* window)
     float dpiScaleX, dpiScaleY;
     glfwGetWindowContentScale(window, &dpiScaleX, &dpiScaleY);
 
-    f32 baseFontSize = 16.0f;
+    f32 baseFontSize = 21.0f;
     io.Fonts->AddFontFromFileTTF("assets\\fonts\\Nunito-Regular.ttf", baseFontSize * dpiScaleX, &fontConfig, ranges);
     ImGui::GetStyle().ScaleAllSizes(dpiScaleX);
     io.IniFilename = NULL;
@@ -80,19 +80,25 @@ bool morphImGuiInit(MorphVulkanContext* ctx, GLFWwindow* window)
 
     ImGui_ImplVulkan_Init(&initInfo);
 
-    // Global style — see lessons in handoff before touching these
-    ImGuiStyle& style          = ImGui::GetStyle();
-    style.WindowPadding        = ImVec2(12.0f, 12.0f);
-    style.WindowRounding       = 8.0f;
-    style.WindowBorderSize     = 1.0f;
-    style.Colors[ImGuiCol_Border] = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.WindowPadding = ImVec2(12.0f, 12.0f);
+    style.WindowRounding = 8.0f;
+    style.WindowBorderSize = 0.0f;
+    style.Colors[ImGuiCol_Border] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+
+    //tab chips
+    style.Colors[ImGuiCol_Tab]                = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);
+    style.Colors[ImGuiCol_TabHovered]         = ImVec4(0.013f, 0.013f, 0.013f, 1.0f);
+    style.Colors[ImGuiCol_TabActive]          = ImVec4(0.013f, 0.013f, 0.013f, 1.0f);
+    style.Colors[ImGuiCol_TabUnfocused]       = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);
+    style.Colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.013f, 0.013f, 0.013f, 1.0f);
 
     return true;
 }
 
 void morphImGuiSetIniPath(const char* path)
 {
-    ImGuiIO& io  = ImGui::GetIO();
+    ImGuiIO& io = ImGui::GetIO();
     io.IniFilename = path;
 
     wchar_t widePath[MAX_PATH_LEN];
@@ -144,8 +150,31 @@ void morphImGuiShutdown(MorphVulkanContext* ctx)
     vkDestroyDescriptorPool(ctx->logicalDevice, ctx->imguiDescriptorPool, nullptr);
 }
 
-void morphImGuiBeginDockspace(void)
-{ ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode); }
+void morphImGuiBeginDockspace(f32 offsetY)
+{
+    ImVec2 viewportPos = ImGui::GetMainViewport()->Pos;
+    ImVec2 viewportSize = ImGui::GetMainViewport()->Size;
+
+    ImGui::GetBackgroundDrawList()->AddRectFilled(viewportPos, ImVec2(viewportPos.x + viewportSize.x, viewportPos.y + viewportSize.y), IM_COL32(12, 12, 12, 255));
+
+    ImGui::SetNextWindowPos(ImVec2(viewportPos.x, viewportPos.y + offsetY));
+    ImGui::SetNextWindowSize(ImVec2(viewportSize.x, viewportSize.y - offsetY));
+
+    ImGuiWindowFlags dockFlags =
+        ImGuiWindowFlags_NoDecoration           |
+        ImGuiWindowFlags_NoMove                 |
+        ImGuiWindowFlags_NoSavedSettings        |
+        ImGuiWindowFlags_NoBringToFrontOnFocus;
+
+    ImGui::SetNextWindowBgAlpha(0.0f);
+    ImGui::Begin("##dockspace", nullptr, dockFlags);
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImVec2 wMin = ImGui::GetWindowPos();
+        ImVec2 wMax = ImVec2(wMin.x + viewportSize.x, wMin.y + viewportSize.y - offsetY);
+        dl->AddRectFilled(wMin, wMax, IM_COL32(3, 3, 3, 255), 25.0f, ImDrawFlags_RoundCornersTop);
+        ImGui::DockSpace(ImGui::GetID("##ds"), ImVec2(0, 0));
+    ImGui::End();
+}
 
 void morphImGuiBeginWindow(const char* name)
 { ImGui::Begin(name); }

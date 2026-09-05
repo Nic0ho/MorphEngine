@@ -182,7 +182,6 @@ int main(int argc, char* argv[])
         morphEditorUpdateInput(&editor, &input, &camera, morphEditorGetActiveScene(&editor), (f32)timeState.deltaTime);
 
         morphImGuiNewFrame();
-        morphImGuiBeginDockspace();
         morphImGuiDrawMenuBar(&editor, window, (f32)timeState.deltaTime);
         if (editor.showOutput)
         {

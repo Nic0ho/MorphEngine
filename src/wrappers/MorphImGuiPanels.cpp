@@ -85,9 +85,9 @@ static void drawFileTree(const char* path)
         char childPath[MAX_PATH_LEN];
         snprintf(childPath, sizeof(childPath), "%s\\%s", path, findData.cFileName);
 
-        bool selected          = strcmp(selectedPath, childPath) == 0;
+        bool selected = strcmp(selectedPath, childPath) == 0;
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
-        if (selected)                    flags |= ImGuiTreeNodeFlags_Selected;
+        if (selected) flags |= ImGuiTreeNodeFlags_Selected;
         if (!hasSubdirectories(childPath)) flags |= ImGuiTreeNodeFlags_Leaf;
 
         bool open = ImGui::TreeNodeEx(findData.cFileName, flags);
@@ -165,10 +165,10 @@ static void drawFolderContents(MorphEditor* editor)
 
     qsort(items, itemCount, sizeof(FileItem), compareFileItems);
 
-    f32 padding     = 16.0f;
-    f32 iconSize    = 64.0f;
-    f32 cellSize    = iconSize + padding;
-    f32 panelWidth  = ImGui::GetContentRegionAvail().x;
+    f32 padding = 16.0f;
+    f32 iconSize = 64.0f;
+    f32 cellSize = iconSize + padding;
+    f32 panelWidth = ImGui::GetContentRegionAvail().x;
     int columnCount = (int)(panelWidth / cellSize);
     if (columnCount < 1) columnCount = 1;
 
@@ -212,8 +212,8 @@ static const char* entityTypeName(EntityType type)
     switch (type)
     {
         case ENTITY_PLAYER: return "Player";
-        case ENTITY_BLOCK:  return "Block";
-        default:            return "Unknown";
+        case ENTITY_BLOCK: return "Block";
+        default: return "Unknown";
     }
 }
 

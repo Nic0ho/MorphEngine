@@ -34,7 +34,7 @@ void morphImGuiDrawMenuBar(MorphEditor* editor, GLFWwindow* window, f32 deltaTim
 void morphImGuiDrawHub(MorphEditor* editor, MorphCamera* camera);
 
 // One-liner wrappers
-void morphImGuiBeginDockspace(void);
+void morphImGuiBeginDockspace(f32 offsetY);
 void morphImGuiBeginWindow(const char* name);
 void morphImGuiEndWindow(void);
 void morphBeginTiledWindow(const char* name, f32 gap);
