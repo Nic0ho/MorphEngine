@@ -226,8 +226,6 @@ void morphImGuiResetContentBrowser(void)
 
 void morphImGuiDrawOutput(MorphOutputConsoleBuffer* buffer)
 {
-    ImGui::Separator();
-
     f32 footerHeight = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
     ImGui::BeginChild("OutlinerList", ImVec2(0, -footerHeight), false, ImGuiWindowFlags_HorizontalScrollbar);
 
@@ -245,8 +243,6 @@ void morphImGuiDrawOutput(MorphOutputConsoleBuffer* buffer)
 
 void morphImGuiDrawAssetBrowser(MorphEditor* editor)
 {
-    ImGui::Separator();
-
     if (ImGui::TreeNodeEx("Project", ImGuiTreeNodeFlags_DefaultOpen))
     {
         char projectPath[MAX_PATH_LEN];
@@ -264,20 +260,13 @@ void morphImGuiDrawAssetBrowser(MorphEditor* editor)
 }
 
 void morphImGuiDrawFolderOverview(MorphEditor* editor)
-{
-    ImGui::Separator();
-    drawFolderContents(editor);
-}
+{ drawFolderContents(editor); }
 
 void morphImGuiDrawTools(void)
-{
-    ImGui::Separator();
-}
+{ }
 
 void morphImGuiDrawOutliner(MorphEditor* editor)
 {
-    ImGui::Separator();
-
     f32 footerHeight = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
     ImGui::BeginChild("OutlinerList", ImVec2(0, -footerHeight), false, ImGuiWindowFlags_HorizontalScrollbar);
 
@@ -312,7 +301,6 @@ void morphImGuiDrawOutliner(MorphEditor* editor)
 void morphImGuiDrawDetails(MorphEditor* editor)
 {
     MorphScene* scene = morphEditorGetActiveScene(editor);
-    ImGui::Separator();
 
     if (editor->selectionType == SELECTION_ENTITY)
     {
@@ -335,7 +323,6 @@ void morphImGuiDrawDetails(MorphEditor* editor)
 
 void morphImGuiDrawViewport(VkDescriptorSet descriptorSet, u32 texWidth, u32 texHeight)
 {
-    ImGui::Separator();
     ImVec2 size = ImGui::GetContentRegionAvail();
     ImGui::Image((ImTextureID)descriptorSet, size);
 }

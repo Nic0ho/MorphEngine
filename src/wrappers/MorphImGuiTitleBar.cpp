@@ -1,8 +1,9 @@
+#include <imgui.h>
+#include <imgui_internal.h>
 #include "MorphImGui.h"
 #include "MorphEditor.h"
 #include "MorphMath.h"
 #include "MorphTypes.h"
-#include "imgui.h"
 #include "GLFW/glfw3.h"
 #include <cstdio>
 
@@ -67,6 +68,7 @@ void morphImGuiDrawMenuBar(MorphEditor* editor, GLFWwindow* window, f32 deltaTim
     //left block ----------
     ImGui::SetNextWindowPos(viewportPos);
     ImGui::SetNextWindowSize(ImVec2(rowHeight, barHeight), ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.0f);
 
     ImGui::Begin("##leftblock", nullptr, flags);
         ImDrawList* drawList = ImGui::GetWindowDrawList();

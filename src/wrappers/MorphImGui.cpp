@@ -3,9 +3,10 @@
 #include "MorphTypes.h"
 #include "MorphMath.h"
 #include "GLFW/glfw3.h"
-#include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
+#include "imgui.h"
+#include "imgui_internal.h"
 #include <cstddef>
 #include <cstring>
 #include <stdlib.h>
@@ -92,6 +93,11 @@ bool morphImGuiInit(MorphVulkanContext* ctx, GLFWwindow* window)
     style.Colors[ImGuiCol_TabActive]          = ImVec4(0.013f, 0.013f, 0.013f, 1.0f);
     style.Colors[ImGuiCol_TabUnfocused]       = ImVec4(0.2f, 0.2f, 0.2f, 1.0f);
     style.Colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.013f, 0.013f, 0.013f, 1.0f);
+    style.DockingSeparatorSize = 0.0f;
+
+    style.Colors[ImGuiCol_Separator]        = ImVec4(0, 0, 0, 0);
+    style.Colors[ImGuiCol_SeparatorHovered] = ImVec4(0, 0, 0, 0);
+    style.Colors[ImGuiCol_SeparatorActive]  = ImVec4(0, 0, 0, 0);
 
     return true;
 }
@@ -167,13 +173,15 @@ void morphImGuiBeginDockspace(f32 offsetY)
         ImGuiWindowFlags_NoBringToFrontOnFocus;
 
     ImGui::SetNextWindowBgAlpha(0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(5, 5));
     ImGui::Begin("##dockspace", nullptr, dockFlags);
-        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImDrawList* dl = ImGui::GetBackgroundDrawList();
         ImVec2 wMin = ImGui::GetWindowPos();
         ImVec2 wMax = ImVec2(wMin.x + viewportSize.x, wMin.y + viewportSize.y - offsetY);
         dl->AddRectFilled(wMin, wMax, IM_COL32(3, 3, 3, 255), 25.0f, ImDrawFlags_RoundCornersTop);
         ImGui::DockSpace(ImGui::GetID("##ds"), ImVec2(0, 0));
     ImGui::End();
+    ImGui::PopStyleVar();
 }
 
 void morphImGuiBeginWindow(const char* name)
@@ -182,13 +190,109 @@ void morphImGuiBeginWindow(const char* name)
 void morphImGuiEndWindow(void)
 { ImGui::End(); }
 
-void morphBeginTiledWindow(const char* name, f32 gap)
+void morphBeginTiledWindow(const char* name, f32 gap, MorphEditor* editor, MorphPanelId panelId)
 {
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    ImGui::Begin(name);
-    ImGui::PopStyleVar();
+    ImGui::SetNextWindowBgAlpha(0.0f);
 
-    ImGui::SetCursorPos(ImVec2(gap, gap));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4.0f, 6.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_TabBarBorderSize, 0.0f);
+    ImGui::PushStyleColor(ImGuiCol_Tab, ImVec4(0.22f, 0.22f, 0.22f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_TabActive, ImVec4(0.22f, 0.22f, 0.22f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_TabUnfocused, ImVec4(0.22f, 0.22f, 0.22f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, ImVec4(0.22f, 0.22f, 0.22f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_TabHovered, ImVec4(0.28f, 0.28f, 0.28f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
+    ImGui::Begin(name, nullptr, ImGuiWindowFlags_NoCollapse);
+    ImGui::PopStyleColor(6);
+    ImGui::PopStyleVar(2);
+
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    ImGuiDockNode* node = window->DockNode;
+
+    if (node)
+    {
+        if (!editor->panelStates[panelId].isInBlock)
+        {
+            ImVec2 bgMin = ImVec2(node->Pos.x + gap, node->Pos.y + gap);
+            ImVec2 bgMax = ImVec2(node->Pos.x + node->Size.x - gap, node->Pos.y + node->Size.y - gap);
+            ImGui::GetBackgroundDrawList()->AddRectFilled(bgMin, bgMax, IM_COL32(120, 120, 120, 255), 8.0f);
+        }
+
+        node->SetLocalFlags(node->LocalFlags | ImGuiDockNodeFlags_NoWindowMenuButton);
+        if (node->TabBar)
+        {
+            float sepY = node->Pos.y + node->TabBar->BarRect.GetHeight();
+            ImGui::GetBackgroundDrawList()->AddLine(ImVec2(node->Pos.x, sepY),
+                                                    ImVec2(node->Pos.x + node->Size.x, sepY),
+                                                    IM_COL32(80, 80, 80, 255), 1.0f);
+        }
+    }
+
+    bool inBlock = false;
+    
+    if (node != nullptr && node->ParentNode != nullptr &&
+        node->ParentNode->ChildNodes[0] != nullptr &&
+        node->ParentNode->ChildNodes[1] != nullptr)
+    {
+        ImGuiDockNode* parent = node->ParentNode;
+        bool bothLeaves = parent->ChildNodes[0]->ChildNodes[0] == nullptr &&
+                          parent->ChildNodes[0]->ChildNodes[1] == nullptr &&
+                          parent->ChildNodes[1]->ChildNodes[0] == nullptr &&
+                          parent->ChildNodes[1]->ChildNodes[1] == nullptr;
+        inBlock = bothLeaves;
+    }
+    editor->panelStates[panelId].isInBlock = inBlock;
+
+    if (inBlock)
+    {
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0, 0, 0, 0));
+
+        ImGuiDockNode* parent = node->ParentNode;
+        editor->panelStates[panelId].blockMin = { parent->Pos.x, parent->Pos.y };
+        editor->panelStates[panelId].blockMax = { parent->Pos.x + parent->Size.x, parent->Pos.y + parent->Size.y };
+
+        if (node->ParentNode->ChildNodes[0] == node)
+        {
+            ImDrawList* bdl = ImGui::GetBackgroundDrawList();
+            ImVec2 bMin = { editor->panelStates[panelId].blockMin.x + gap, editor->panelStates[panelId].blockMin.y + gap };
+            ImVec2 bMax = { editor->panelStates[panelId].blockMax.x - gap, editor->panelStates[panelId].blockMax.y - gap };
+
+            bdl->AddRectFilled(bMin, bMax, IM_COL32(7, 7, 7, 255), 15.0f);
+
+            if (node->ParentNode->SplitAxis == ImGuiAxis_X)
+            {
+                float separatorX = node->ParentNode->ChildNodes[0]->Pos.x + node->ParentNode->ChildNodes[0]->Size.x;
+                bdl->AddLine(ImVec2(separatorX - 1, bMin.y + 5), ImVec2(separatorX - 1, bMax.y - 5), IM_COL32(25, 25, 25, 255), 0.5f);
+                bdl->AddLine(ImVec2(separatorX + 1, bMin.y + 5), ImVec2(separatorX + 1, bMax.y - 5), IM_COL32(25, 25, 25, 255), 0.5f);
+            }
+            else
+            {
+                float separatorY = node->ParentNode->ChildNodes[0]->Pos.y + node->ParentNode->ChildNodes[0]->Size.y;
+                bdl->AddLine(ImVec2(bMin.x + 5, separatorY - 1), ImVec2(bMax.x - 5, separatorY - 1), IM_COL32(25, 25, 25, 255), 0.5f);
+                bdl->AddLine(ImVec2(bMin.x + 5, separatorY + 1), ImVec2(bMax.x - 5, separatorY + 1), IM_COL32(25, 25, 25, 255), 0.5f);
+            }
+
+            ImVec2 hitMin, hitMax;
+            if (node->ParentNode->SplitAxis == ImGuiAxis_X)
+            {
+                float sepX = node->Pos.x + node->Size.x;
+                hitMin = ImVec2(sepX - 4, bMin.y);
+                hitMax = ImVec2(sepX + 4, bMax.y);
+            }
+            else
+            {
+                float sepY = node->Pos.y + node->Size.y;
+                hitMin = ImVec2(bMin.x, sepY - 4);
+                hitMax = ImVec2(bMax.x, sepY + 4);
+            }
+
+            ImGuiWindow* otherWindow = node->ParentNode->ChildNodes[1]->VisibleWindow;
+            if (otherWindow && ImGui::IsMouseHoveringRect(hitMin, hitMax, false) && ImGui::IsMouseDoubleClicked(0))
+                ImGui::DockContextQueueUndockWindow(GImGui, otherWindow);
+        }
+    }
+
+    ImGui::SetCursorPos(ImVec2(gap, ImGui::GetCursorPosY()));
 
     ImVec2 size = ImGui::GetContentRegionAvail();
     size.x -= gap;
@@ -199,10 +303,12 @@ void morphBeginTiledWindow(const char* name, f32 gap)
     ImGui::BeginChild("##TiledInner", size, ImGuiChildFlags_Borders | ImGuiChildFlags_AlwaysUseWindowPadding);
 }
 
-void morphEndTiledWindow(void)
+void morphEndTiledWindow(MorphEditor* editor, MorphPanelId panelId)
 {
     ImGui::EndChild();
     ImGui::PopStyleVar(2);
+    if (editor->panelStates[panelId].isInBlock)
+        ImGui::PopStyleColor();
     ImGui::End();
 }
 

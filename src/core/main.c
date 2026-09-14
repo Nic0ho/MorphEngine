@@ -185,40 +185,41 @@ int main(int argc, char* argv[])
         morphImGuiDrawMenuBar(&editor, window, (f32)timeState.deltaTime);
         if (editor.showOutput)
         {
-            morphImGuiBeginWindow("Output");
+            morphBeginTiledWindow("Output", 5.0f, &editor, PANEL_OUTPUT);
             morphImGuiDrawOutput(&editor.output);
-            morphImGuiEndWindow();
+            morphEndTiledWindow(&editor, PANEL_OUTPUT);
         }
         if (editor.showContentDrawer)
         {
-            morphImGuiBeginWindow("Asset browser");
+            morphBeginTiledWindow("Asset browser", 5.0f, &editor, PANEL_ASSET_BROWSER);
             morphImGuiDrawAssetBrowser(&editor);
-            morphImGuiEndWindow();
-            morphImGuiBeginWindow("Folder overwiew");
+            morphEndTiledWindow(&editor, PANEL_ASSET_BROWSER);
+
+            morphBeginTiledWindow("Folder overwiew", 5.0f, &editor, PANEL_FOLDER_CONTENT);
             morphImGuiDrawFolderOverview(&editor);
-            morphImGuiEndWindow();
+            morphEndTiledWindow(&editor, PANEL_FOLDER_CONTENT);
         }
         if (editor.showTools)
         {
-            morphImGuiBeginWindow("Tools");
+            morphBeginTiledWindow("Tools", 5.0f, &editor, PANEL_TOOLS);
             morphImGuiDrawTools();
-            morphImGuiEndWindow();
+            morphEndTiledWindow(&editor, PANEL_TOOLS);
         }
         if (editor.showOutliner)
         {
-            morphImGuiBeginWindow("Outliner");
+            morphBeginTiledWindow("Outliner", 5.0f, &editor, PANEL_OUTLINER);
             morphImGuiDrawOutliner(&editor);
-            morphImGuiEndWindow();
+            morphEndTiledWindow(&editor, PANEL_OUTLINER);
         }
         if (editor.showDetails)
         {
-            morphImGuiBeginWindow("Details");
+            morphBeginTiledWindow("Details", 5.0f, &editor, PANEL_DETAILS);
             morphImGuiDrawDetails(&editor);
-            morphImGuiEndWindow();
+            morphEndTiledWindow(&editor, PANEL_DETAILS);
         }
         if (editor.showViewport)
         {
-            morphImGuiBeginWindow("Viewport");
+            morphBeginTiledWindow("Viewport", 5.0f, &editor, PANEL_VIEWPORT);
             viewportSize = morphImGuiGetViewportSize();
 
             if (viewportSize.x != editor.lastViewportSize.x || viewportSize.y != editor.lastViewportSize.y)
@@ -241,8 +242,7 @@ int main(int argc, char* argv[])
             
             morphImGuiDrawViewport(vk.viewportDescriptorSet, vk.viewportTexture.width, vk.viewportTexture.height);
             editor.viewportCursorFocused = morphImGuiGetViewportFocusedCursor();
-
-            morphImGuiEndWindow();
+            morphEndTiledWindow(&editor, PANEL_VIEWPORT);
         }
         if (editor.showHUB)
         {

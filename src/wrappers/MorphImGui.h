@@ -14,7 +14,7 @@ extern "C"
 {
 #endif
 
-// Init / frame / shutdown
+//main
 bool morphImGuiInit(MorphVulkanContext* ctx, GLFWwindow* window);
 void morphImGuiNewFrame(void);
 void morphImGuiEndFrame(void);
@@ -22,7 +22,7 @@ void morphImGuiRender(VkCommandBuffer cmd);
 void morphImGuiShutdown(MorphVulkanContext* ctx);
 void morphImGuiSetIniPath(const char* path);
 
-// Panels
+//panels
 void morphImGuiDrawOutput(MorphOutputConsoleBuffer* buffer);
 void morphImGuiDrawAssetBrowser(MorphEditor* editor);
 void morphImGuiDrawFolderOverview(MorphEditor* editor);
@@ -33,16 +33,16 @@ void morphImGuiDrawViewport(VkDescriptorSet descriptorSet, u32 texWidth, u32 tex
 void morphImGuiDrawMenuBar(MorphEditor* editor, GLFWwindow* window, f32 deltaTime);
 void morphImGuiDrawHub(MorphEditor* editor, MorphCamera* camera);
 
-// One-liner wrappers
+//one line wrappers
 void morphImGuiBeginDockspace(f32 offsetY);
 void morphImGuiBeginWindow(const char* name);
 void morphImGuiEndWindow(void);
-void morphBeginTiledWindow(const char* name, f32 gap);
-void morphEndTiledWindow(void);
+void morphBeginTiledWindow(const char* name, f32 gap, MorphEditor* editor, MorphPanelId panelId);
+void morphEndTiledWindow(MorphEditor* editor, MorphPanelId panelId);
 VkDescriptorSet morphImGuiRegisterTexture(VkSampler sampler, VkImageView view);
 void morphImGuiResetContentBrowser(void);
 
-// Getters
+//getters
 Vec2 morphImGuiGetViewportSize(void);
 bool morphImGuiGetViewportFocusedCursor(void);
 

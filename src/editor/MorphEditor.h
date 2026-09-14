@@ -2,6 +2,7 @@
 
 #include "MorphInput.h"
 #include "MorphLog.h"
+
 #include "MorphProject.h"
 #include "MorphTypes.h"
 #include "MorphMath.h"
@@ -35,6 +36,18 @@ typedef enum
     TAB_PREFAB,
 } MorphTabType;
 
+typedef enum
+{
+    PANEL_TOOLS,
+    PANEL_VIEWPORT,
+    PANEL_OUTLINER,
+    PANEL_DETAILS,
+    PANEL_ASSET_BROWSER,
+    PANEL_FOLDER_CONTENT,
+    PANEL_OUTPUT,
+    PANEL_COUNT
+} MorphPanelId;
+
 typedef union
 {
     MorphScene scene;
@@ -53,6 +66,13 @@ typedef struct
 
 typedef struct
 {
+    bool isInBlock;
+    Vec2 blockMin;
+    Vec2 blockMax;
+} MorphPanelState;
+
+typedef struct
+{
     MorphOutputConsoleBuffer output;
 
     //Engine
@@ -68,6 +88,7 @@ typedef struct
 
     //Tabs
     MorphEditorTab tabs[MAX_TABS];
+    MorphPanelState panelStates[PANEL_COUNT];
     u32 tabCount;
     u32 activeTab;
 

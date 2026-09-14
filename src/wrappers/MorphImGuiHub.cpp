@@ -1,9 +1,10 @@
+#include <imgui.h>
+#include <imgui_internal.h>
 #include "MorphImGui.h"
 #include "MorphEditor.h"
 #include "MorphProject.h"
 #include "MorphPlatform.h"
 #include "MorphTypes.h"
-#include "imgui.h"
 #include <cstdio>
 #include <cstring>
 
